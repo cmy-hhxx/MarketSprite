@@ -7,10 +7,9 @@ struct StockPetApp: App {
     @StateObject private var store = StockStore()
 
     var body: some Scene {
-        WindowGroup("Stock Pet", id: "stock-pet") {
+        WindowGroup("MingyHUD", id: "stock-pet") {
             FloatingPetView()
                 .environmentObject(store)
-                .environment(\.locale, stockPetLocale)
                 .background(
                     WindowConfigurator(
                         clickThrough: store.clickThrough,
@@ -28,17 +27,15 @@ struct StockPetApp: App {
         .windowResizability(.contentSize)
         .defaultPosition(.topTrailing)
 
-        MenuBarExtra("Stock Pet", systemImage: "chart.xyaxis.line") {
+        MenuBarExtra("MingyHUD", systemImage: "chart.xyaxis.line") {
             MenuBarContent()
                 .environmentObject(store)
-                .environment(\.locale, stockPetLocale)
         }
         .menuBarExtraStyle(.menu)
 
         Settings {
             SettingsView()
                 .environmentObject(store)
-                .environment(\.locale, stockPetLocale)
                 .frame(width: 640, height: 720)
         }
     }
@@ -129,7 +126,7 @@ struct MenuBarContent: View {
 
         Divider()
 
-        Button(tr("退出 Stock Pet")) {
+        Button(tr("退出 MingyHUD")) {
             NSApp.terminate(nil)
         }
         .keyboardShortcut("q")

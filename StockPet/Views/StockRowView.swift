@@ -15,7 +15,7 @@ struct StockRowView: View {
     var body: some View {
         HStack(spacing: compact ? 7 : 10) {
             label
-                .frame(width: compact ? 88 : 108, alignment: .leading)
+                .layoutPriority(1)
 
             Group {
                 if let quote, quote.points.count > 1 {
@@ -29,7 +29,9 @@ struct StockRowView: View {
                     placeholder
                 }
             }
-            .frame(maxWidth: .infinity)
+            .frame(minWidth: 120, maxWidth: compact ? 150 : 180)
+
+            Spacer(minLength: 0)
 
             price
                 .frame(width: compact ? 82 : 96, alignment: .trailing)

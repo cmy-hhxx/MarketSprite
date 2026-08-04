@@ -225,11 +225,7 @@ final class StockStore: ObservableObject {
                     loadingIDs.remove(id)
                     if var cached = quotes[id] {
                         cached.isStale = true
-#if ENGLISH_BUILD
-                        cached.statusMessage = tr("行情连接失败")
-#else
                         cached.statusMessage = message
-#endif
                         quotes[id] = cached
                     }
                 }
@@ -251,11 +247,7 @@ final class StockStore: ObservableObject {
         } catch {
             if var cached = quotes[symbol.id] {
                 cached.isStale = true
-#if ENGLISH_BUILD
-                cached.statusMessage = tr("行情连接失败")
-#else
                 cached.statusMessage = error.localizedDescription
-#endif
                 quotes[symbol.id] = cached
             }
         }

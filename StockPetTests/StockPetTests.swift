@@ -1,5 +1,5 @@
 import XCTest
-@testable import StockPet
+@testable import MingyHUD
 
 final class StockPetTests: XCTestCase {
     func testMarketColorConventionIsReversedForUnitedStates() {

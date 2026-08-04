@@ -52,7 +52,7 @@ actor MarketQuoteService: QuoteProviding {
             guard seen.insert(quoteID).inserted else { return nil }
             return StockSymbol(
                 code: item.code,
-                name: localizedStockName(item.name, code: item.code),
+                name: item.name,
                 market: market,
                 quoteID: quoteID
             )

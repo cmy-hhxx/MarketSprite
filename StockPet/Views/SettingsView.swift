@@ -33,7 +33,7 @@ struct SettingsView: View {
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .navigationTitle("Stock Pet 设置")
+        .navigationTitle("MingyHUD 设置")
     }
 
     private var watchlistView: some View {
@@ -502,7 +502,6 @@ struct SettingsView: View {
                         Date.FormatStyle(
                             date: .abbreviated,
                             time: .standard,
-                            locale: stockPetLocale,
                             calendar: .current,
                             timeZone: .current
                         )
@@ -528,14 +527,6 @@ struct SettingsView: View {
                 .padding(6)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-
-            SettingsCard {
-                HStack {
-                    Label("GitHub 作者", systemImage: "person.crop.circle")
-                    Spacer()
-                    Link("@YellowPancake", destination: URL(string: "https://github.com/YellowPancake")!)
-                }
-            }
         }
     }
 
@@ -552,14 +543,10 @@ struct SettingsView: View {
                 results = found
                 searchMessage = found.isEmpty ? tr("没有找到支持的 A股、港股或美股") : nil
             } catch {
-#if ENGLISH_BUILD
-                searchMessage = tr("搜索暂时不可用")
-#else
                 searchMessage = String(
                     format: tr("搜索失败：%@"),
                     error.localizedDescription
                 )
-#endif
             }
             isSearching = false
         }

@@ -48,19 +48,19 @@ struct StockSymbol: Identifiable, Codable, Hashable, Sendable {
     static let initialSymbols: [StockSymbol] = [
         StockSymbol(
             code: "600519",
-            name: localizedStockName("贵州茅台", code: "600519"),
+            name: "贵州茅台",
             market: .aShare,
             quoteID: "1.600519"
         ),
         StockSymbol(
             code: "00700",
-            name: localizedStockName("腾讯控股", code: "00700"),
+            name: "腾讯控股",
             market: .hongKong,
             quoteID: "116.00700"
         ),
         StockSymbol(
             code: "AAPL",
-            name: localizedStockName("苹果", code: "AAPL"),
+            name: "苹果",
             market: .unitedStates,
             quoteID: "105.AAPL"
         )

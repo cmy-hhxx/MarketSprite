@@ -2,13 +2,11 @@
 
 ## v0.3.0
 
-The first public release of 盘宠 StockPet.
+The first public release of MingyHUD.
 
 ### Highlights
 
 - Native Universal macOS builds for Apple Silicon and Intel Macs.
-- Portable Windows x64 builds.
-- Separate Chinese and fully English editions.
 - A-share, Hong Kong, and US intraday charts with unlimited watchlist entries.
 - Market-aware red/green conventions and consistent chart, name, ticker, price, and change colors.
 - Independent opacity controls, overall scaling, dragging, always-on-top, mouse passthrough, and a customizable global show/hide shortcut.

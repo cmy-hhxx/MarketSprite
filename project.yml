@@ -1,6 +1,6 @@
-name: StockPet
+name: MingyHUD
 options:
-  bundleIdPrefix: com.bingge
+  bundleIdPrefix: com.mingyhud
   deploymentTarget:
     macOS: "14.0"
   xcodeVersion: "16.0"
@@ -12,18 +12,17 @@ settings:
     MARKETING_VERSION: 0.3.0
     CODE_SIGN_STYLE: Automatic
 targets:
-  StockPet:
+  MingyHUD:
     type: application
     platform: macOS
     sources:
       - path: StockPet
-      - path: ChineseResources
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.bingge.StockPet
-        PRODUCT_NAME: StockPet
+        PRODUCT_BUNDLE_IDENTIFIER: com.mingyhud.app
+        PRODUCT_NAME: MingyHUD
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: 盘宠 StockPet
+        INFOPLIST_KEY_CFBundleDisplayName: MingyHUD
         INFOPLIST_KEY_CFBundleDevelopmentRegion: zh_CN
         INFOPLIST_KEY_LSUIElement: YES
         INFOPLIST_KEY_NSHighResolutionCapable: YES
@@ -32,46 +31,14 @@ targets:
     scheme:
       testTargets:
         - StockPetTests
-  StockPetEnglish:
-    type: application
-    platform: macOS
-    sources:
-      - path: StockPet
-      - path: EnglishResources
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.bingge.StockPetEnglish
-        PRODUCT_NAME: StockPetEnglish
-        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) ENGLISH_BUILD"
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: Stock Pet
-        INFOPLIST_KEY_CFBundleDevelopmentRegion: en
-        INFOPLIST_KEY_LSUIElement: YES
-        INFOPLIST_KEY_NSHighResolutionCapable: YES
-        INFOPLIST_KEY_NSHumanReadableCopyright: "For personal reference only. Not investment advice."
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-    scheme:
-      testTargets:
-        - StockPetEnglishTests
-  StockPetEnglishTests:
-    type: bundle.unit-test
-    platform: macOS
-    sources:
-      - path: StockPetEnglishTests
-    dependencies:
-      - target: StockPetEnglish
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.bingge.StockPetEnglishTests
-        GENERATE_INFOPLIST_FILE: YES
   StockPetTests:
     type: bundle.unit-test
     platform: macOS
     sources:
       - path: StockPetTests
     dependencies:
-      - target: StockPet
+      - target: MingyHUD
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.bingge.StockPetTests
+        PRODUCT_BUNDLE_IDENTIFIER: com.mingyhud.StockPetTests
         GENERATE_INFOPLIST_FILE: YES
