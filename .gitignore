@@ -26,3 +26,5 @@ reporter_weekly.md
 .env
 .env.*
 !.env.example
+.reasonix
+reasonix.toml
