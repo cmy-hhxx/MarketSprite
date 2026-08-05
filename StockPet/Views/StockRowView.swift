@@ -12,6 +12,16 @@ struct StockRowView: View {
         symbol.market.colorRole(isRising: (quote?.changePercent ?? 0) >= 0)
     }
 
+    /// 名称/价格：保底不透明，避免发灰发糊。
+    private var primaryOpacity: Double {
+        max(0.92, min(labelOpacity, 1))
+    }
+
+    /// 代码行：略低于主文字，但仍保证可读。
+    private var codeOpacity: Double {
+        max(0.78, min(labelOpacity, 1))
+    }
+
     private var labelWidth: CGFloat { compact ? 148 : 176 }
     private var chartWidth: CGFloat { compact ? 148 : 176 }
     private var priceWidth: CGFloat { compact ? 82 : 96 }
@@ -26,8 +36,10 @@ struct StockRowView: View {
                     IntradayChartView(
                         points: quote.points,
                         dayOpen: quote.dayOpen,
+                        previousClose: quote.previousClose,
                         colorRole: changeRole,
-                        opacity: lineOpacity
+                        opacity: lineOpacity,
+                        showBSMarkers: symbol.market == .aShare && AShareCalendar.shouldShowBSMarkers()
                     )
                 } else {
                     placeholder
@@ -54,18 +66,18 @@ struct StockRowView: View {
                 Text(symbol.name)
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .font(.system(size: compact ? 11 : 12, weight: .bold, design: .rounded))
+                    .font(.system(size: compact ? 11 : 12, weight: .semibold, design: .rounded))
                     .foregroundStyle(
                         quote == nil
-                            ? Color.white.opacity(labelOpacity)
-                            : changeRole.color.opacity(labelOpacity)
+                            ? Color.white.opacity(primaryOpacity)
+                            : changeRole.color.opacity(primaryOpacity)
                     )
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 if quote?.isStale == true {
                     Image(systemName: "clock.badge.exclamationmark")
                         .font(.system(size: 8))
-                        .foregroundStyle(changeRole.color.opacity(labelOpacity))
+                        .foregroundStyle(changeRole.color.opacity(primaryOpacity))
                 }
             }
 
@@ -74,13 +86,13 @@ struct StockRowView: View {
                 Text(symbol.market.displayName)
                     .padding(.horizontal, 4)
                     .padding(.vertical, 1)
-                    .background(changeRole.color.opacity(0.14), in: Capsule())
+                    .background(changeRole.color.opacity(0.22), in: Capsule())
             }
-            .font(.system(size: compact ? 7 : 8, weight: .semibold, design: .monospaced))
+            .font(.system(size: compact ? 8 : 9, weight: .semibold, design: .monospaced))
             .foregroundStyle(
                 quote == nil
-                    ? Color.white.opacity(labelOpacity)
-                    : changeRole.color.opacity(labelOpacity)
+                    ? Color.white.opacity(codeOpacity)
+                    : changeRole.color.opacity(codeOpacity)
             )
             .lineLimit(1)
         }
@@ -93,12 +105,12 @@ struct StockRowView: View {
         if let quote {
             VStack(alignment: .trailing, spacing: compact ? 1 : 3) {
                 Text(priceText(quote.lastPrice))
-                    .font(.system(size: compact ? 11 : 13, weight: .bold, design: .monospaced))
-                    .foregroundStyle(changeRole.color.opacity(labelOpacity))
+                    .font(.system(size: compact ? 12 : 14, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(changeRole.color.opacity(primaryOpacity))
 
                 Text(percentText(quote.changePercent))
-                    .font(.system(size: compact ? 9 : 10, weight: .black, design: .rounded))
-                    .foregroundStyle(changeRole.color.opacity(labelOpacity))
+                    .font(.system(size: compact ? 10 : 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(changeRole.color.opacity(primaryOpacity))
             }
         } else {
             VStack(alignment: .trailing, spacing: 3) {
@@ -107,7 +119,7 @@ struct StockRowView: View {
                     .opacity(isLoading ? 0.6 : 0)
                 Text(tr(isLoading ? "拉取中" : "暂无数据"))
                     .font(.system(size: 8, weight: .medium))
-                    .foregroundStyle(.white.opacity(labelOpacity))
+                    .foregroundStyle(.white.opacity(primaryOpacity))
             }
         }
     }
@@ -143,59 +155,166 @@ struct StockRowView: View {
 struct IntradayChartView: View {
     let points: [IntradayPoint]
     let dayOpen: Double
+    let previousClose: Double
     let colorRole: MarketColorRole
     let opacity: Double
+    var showBSMarkers: Bool = false
+
+    private let subdivisions = 8
+    private let buyMarkerColor = Color(red: 0.18, green: 0.82, blue: 0.55)
+    private let sellMarkerColor = Color(red: 1.0, green: 0.30, blue: 0.38)
 
     var body: some View {
         Canvas { context, size in
             guard points.count > 1 else { return }
 
             let closes = points.map(\.close)
-            let minimum = min(closes.min() ?? dayOpen, dayOpen)
-            let maximum = max(closes.max() ?? dayOpen, dayOpen)
-            let padding = max((maximum - minimum) * 0.14, max(abs(dayOpen) * 0.0008, 0.01))
+            let minimum = min(closes.min() ?? dayOpen, dayOpen, previousClose)
+            let maximum = max(closes.max() ?? dayOpen, dayOpen, previousClose)
+            let padding = max((maximum - minimum) * 0.14, max(abs(previousClose) * 0.0008, 0.01))
             let low = minimum - padding
             let high = maximum + padding
             let range = max(high - low, 0.0001)
+            let lastIndex = points.count - 1
 
-            func coordinate(index: Int, price: Double) -> CGPoint {
-                let x = size.width * CGFloat(index) / CGFloat(max(points.count - 1, 1))
+            func coordinate(index: CGFloat, price: Double) -> CGPoint {
+                let x = size.width * index / CGFloat(max(lastIndex, 1))
                 let normalized = (price - low) / range
                 let y = size.height * (1 - CGFloat(normalized))
                 return CGPoint(x: x, y: y)
             }
 
-            let openY = coordinate(index: 0, price: dayOpen).y
-            var baseline = Path()
-            baseline.move(to: CGPoint(x: 0, y: openY))
-            baseline.addLine(to: CGPoint(x: size.width, y: openY))
+            func close(at index: Int) -> Double {
+                closes[min(max(index, 0), lastIndex)]
+            }
+
+            /// Catmull-Rom：在原始分钟点之间插值，曲线更顺，不丢着色语义。
+            func interpolatedClose(from i1: Int, to i2: Int, t: CGFloat) -> Double {
+                let p0 = close(at: i1 - 1)
+                let p1 = close(at: i1)
+                let p2 = close(at: i2)
+                let p3 = close(at: i2 + 1)
+                let t2 = t * t
+                let t3 = t2 * t
+                return 0.5 * (
+                    (2 * p1)
+                    + (-p0 + p2) * Double(t)
+                    + (2 * p0 - 5 * p1 + 4 * p2 - p3) * Double(t2)
+                    + (-p0 + 3 * p1 - 3 * p2 + p3) * Double(t3)
+                )
+            }
+
+            let waterY = coordinate(index: 0, price: previousClose).y
+            var waterline = Path()
+            waterline.move(to: CGPoint(x: 0, y: waterY))
+            waterline.addLine(to: CGPoint(x: size.width, y: waterY))
             context.stroke(
-                baseline,
-                with: .color(.white.opacity(0.15 * opacity)),
-                style: StrokeStyle(lineWidth: 0.7, dash: [3, 4])
+                waterline,
+                with: .color(.white.opacity(0.22 * opacity)),
+                style: StrokeStyle(lineWidth: 0.8, dash: [3, 4])
             )
 
-            var line = Path()
-            line.move(to: coordinate(index: 0, price: points[0].close))
-            for index in 1..<points.count {
-                line.addLine(to: coordinate(index: index, price: points[index].close))
+            let strokeStyle = StrokeStyle(lineWidth: 1.55, lineCap: .round, lineJoin: .round)
+            var segmentRole = colorRole
+            for index in 1...lastIndex {
+                let previous = closes[index - 1]
+                let current = closes[index]
+                let delta = current - previous
+                if delta > 0 {
+                    segmentRole = .red
+                } else if delta < 0 {
+                    segmentRole = .green
+                }
+
+                var segment = Path()
+                let steps = subdivisions
+                for step in 0...steps {
+                    let t = CGFloat(step) / CGFloat(steps)
+                    let price = interpolatedClose(from: index - 1, to: index, t: t)
+                    let point = coordinate(index: CGFloat(index - 1) + t, price: price)
+                    if step == 0 {
+                        segment.move(to: point)
+                    } else {
+                        segment.addLine(to: point)
+                    }
+                }
+                context.stroke(
+                    segment,
+                    with: .color(segmentRole.color.opacity(opacity)),
+                    style: strokeStyle
+                )
             }
-            context.stroke(
-                line,
-                with: .color(colorRole.color.opacity(opacity)),
-                style: StrokeStyle(lineWidth: 2.0, lineCap: .round, lineJoin: .round)
-            )
 
             if let last = points.last {
-                let point = coordinate(index: points.count - 1, price: last.close)
+                let point = coordinate(index: CGFloat(lastIndex), price: last.close)
                 context.fill(
-                    Path(ellipseIn: CGRect(x: point.x - 2.3, y: point.y - 2.3, width: 4.6, height: 4.6)),
-                    with: .color(colorRole.color.opacity(opacity))
+                    Path(ellipseIn: CGRect(x: point.x - 2.0, y: point.y - 2.0, width: 4.0, height: 4.0)),
+                    with: .color(segmentRole.color.opacity(opacity))
+                )
+            }
+
+            if showBSMarkers {
+                var buyIndex = 0
+                var sellIndex = 0
+                for index in closes.indices {
+                    if closes[index] < closes[buyIndex] {
+                        buyIndex = index
+                    }
+                    if closes[index] > closes[sellIndex] {
+                        sellIndex = index
+                    }
+                }
+                let markerOpacity = max(opacity, 0.92)
+                drawBSMarker(
+                    context: context,
+                    canvasSize: size,
+                    at: coordinate(index: CGFloat(buyIndex), price: closes[buyIndex]),
+                    label: "B",
+                    color: buyMarkerColor.opacity(markerOpacity),
+                    labelAbove: false
+                )
+                drawBSMarker(
+                    context: context,
+                    canvasSize: size,
+                    at: coordinate(index: CGFloat(sellIndex), price: closes[sellIndex]),
+                    label: "S",
+                    color: sellMarkerColor.opacity(markerOpacity),
+                    labelAbove: true
                 )
             }
         }
-        .drawingGroup(opaque: false)
         .accessibilityLabel(tr("当日股价分时曲线"))
+    }
+
+    private func drawBSMarker(
+        context: GraphicsContext,
+        canvasSize: CGSize,
+        at point: CGPoint,
+        label: String,
+        color: Color,
+        labelAbove: Bool
+    ) {
+        let ring: CGFloat = 7.2
+        let core: CGFloat = 4.6
+        context.fill(
+            Path(ellipseIn: CGRect(x: point.x - ring / 2, y: point.y - ring / 2, width: ring, height: ring)),
+            with: .color(Color.white.opacity(0.95))
+        )
+        context.fill(
+            Path(ellipseIn: CGRect(x: point.x - core / 2, y: point.y - core / 2, width: core, height: core)),
+            with: .color(color)
+        )
+
+        let badgeY = labelAbove
+            ? max(point.y - 13, 1)
+            : min(point.y + 4, canvasSize.height - 12)
+        let badgeX = min(max(point.x - 5.5, 1), canvasSize.width - 12)
+        let badge = CGRect(x: badgeX, y: badgeY, width: 11, height: 11)
+        context.fill(Path(roundedRect: badge, cornerRadius: 2.5), with: .color(color))
+        let text = Text(label)
+            .font(.system(size: 8.5, weight: .black, design: .rounded))
+            .foregroundStyle(Color.white)
+        context.draw(text, at: CGPoint(x: badge.midX, y: badge.midY), anchor: .center)
     }
 }
 

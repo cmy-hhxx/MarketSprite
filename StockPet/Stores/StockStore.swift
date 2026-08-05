@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import QuoteDatabase
 
 @MainActor
 final class StockStore: ObservableObject {
@@ -11,6 +12,8 @@ final class StockStore: ObservableObject {
     @Published private(set) var lastRefresh: Date?
     @Published private(set) var sourceError: String?
     @Published var activeAlert: ThresholdAlert?
+    @Published private(set) var quoteDatabasePath: String = ""
+    @Published private(set) var quoteBarCount: Int = 0
 
     @Published var lineOpacity: Double {
         didSet { persist() }
@@ -99,6 +102,7 @@ final class StockStore: ObservableObject {
 
     private let service: any QuoteProviding
     private let defaults: UserDefaults
+    private let minuteBarRepository: MinuteBarRepository?
     private var refreshTask: Task<Void, Never>?
     private var dismissAlertTask: Task<Void, Never>?
     private var currentAlertSound: NSSound?
@@ -110,10 +114,28 @@ final class StockStore: ObservableObject {
 
     init(
         service: any QuoteProviding = MarketQuoteService(),
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard,
+        minuteBarRepository: MinuteBarRepository? = nil
     ) {
         self.service = service
         self.defaults = defaults
+        if let minuteBarRepository {
+            self.minuteBarRepository = minuteBarRepository
+        } else {
+            do {
+                let repository = try QuoteDatabase.openInApplicationSupport()
+                self.minuteBarRepository = repository
+                quoteDatabasePath = repository.databasePath
+            } catch {
+                self.minuteBarRepository = nil
+                quoteDatabasePath = ""
+                NSLog("QuoteDatabase open failed: %@", error.localizedDescription)
+            }
+        }
+        if let minuteBarRepository = self.minuteBarRepository {
+            quoteDatabasePath = minuteBarRepository.databasePath
+            quoteBarCount = (try? minuteBarRepository.rowCount()) ?? 0
+        }
 
         var loadError: String?
         if let data = defaults.data(forKey: Keys.symbols) {
@@ -128,7 +150,7 @@ final class StockStore: ObservableObject {
             symbols = StockSymbol.initialSymbols
         }
         lineOpacity = defaults.object(forKey: Keys.lineOpacity) as? Double ?? 0.92
-        labelOpacity = defaults.object(forKey: Keys.labelOpacity) as? Double ?? 0.92
+        labelOpacity = max(0.35, min(defaults.object(forKey: Keys.labelOpacity) as? Double ?? 0.92, 1))
         backgroundOpacity = defaults.object(forKey: Keys.backgroundOpacity) as? Double ?? 0.16
         risingThreshold = defaults.object(forKey: Keys.risingThreshold) as? Double ?? 3.0
         fallingThreshold = defaults.object(forKey: Keys.fallingThreshold) as? Double ?? 3.0
@@ -294,6 +316,7 @@ final class StockStore: ObservableObject {
                     quotes[quote.id] = quote
                     loadingIDs.remove(quote.id)
                     evaluateThreshold(for: quote)
+                    persistMinuteBarsIfNeeded(quote)
                 case .failure(let id, let message):
                     failures += 1
                     loadingIDs.remove(id)
@@ -326,6 +349,7 @@ final class StockStore: ObservableObject {
             }
             quotes[symbol.id] = quote
             evaluateThreshold(for: quote)
+            persistMinuteBarsIfNeeded(quote)
         } catch {
             guard generation == refreshGeneration else {
                 loadingIDs.remove(symbol.id)
@@ -396,6 +420,62 @@ final class StockStore: ObservableObject {
             thresholdGates.removeValue(forKey: id)
         }
         return touched.count
+    }
+
+    func clearQuoteDatabase() {
+        guard let minuteBarRepository else { return }
+        do {
+            try minuteBarRepository.clearAll()
+            quoteBarCount = 0
+        } catch {
+            NSLog("QuoteDatabase clear failed: %@", error.localizedDescription)
+        }
+    }
+
+    func refreshQuoteBarCount() {
+        guard let minuteBarRepository else {
+            quoteBarCount = 0
+            return
+        }
+        quoteBarCount = (try? minuteBarRepository.rowCount()) ?? 0
+    }
+
+    private func persistMinuteBarsIfNeeded(_ quote: StockQuote) {
+        guard quote.symbol.market == .aShare,
+              let minuteBarRepository,
+              !quote.points.isEmpty
+        else { return }
+
+        let symbolID = quote.symbol.quoteID
+        let tradeDate = AShareCalendar.dayKey(quote.points.last?.time ?? quote.updatedAt)
+        let previousClose = quote.previousClose
+        let bars = quote.points.map {
+            MinuteBarInput(
+                minuteAt: $0.time,
+                open: $0.open,
+                high: $0.high,
+                low: $0.low,
+                close: $0.close
+            )
+        }
+        let fetchedAt = Date()
+        Task.detached(priority: .utility) { [minuteBarRepository] in
+            do {
+                try minuteBarRepository.upsert(
+                    symbolID: symbolID,
+                    tradeDate: tradeDate,
+                    previousClose: previousClose,
+                    bars: bars,
+                    fetchedAt: fetchedAt
+                )
+                let count = try minuteBarRepository.rowCount()
+                await MainActor.run { [weak self] in
+                    self?.quoteBarCount = count
+                }
+            } catch {
+                NSLog("QuoteDatabase upsert failed: %@", error.localizedDescription)
+            }
+        }
     }
 
     func testAlert(_ direction: ThresholdDirection) {

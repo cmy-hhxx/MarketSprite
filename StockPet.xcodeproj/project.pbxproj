@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A1QUOTEDB000000000000001 /* QuoteDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = A1QUOTEDB000000000000002 /* QuoteDatabase */; };
+		A1ASHARECAL000000000002 /* AShareCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1ASHARECAL000000000001 /* AShareCalendar.swift */; };
 		09929F2A48E5811F1CE58DE5 /* StockPetApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83F5CCCE8736F7199FAD9B5E /* StockPetApp.swift */; };
 		0B631D1A21FB811752B03BB1 /* StockStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 643CC492EC969812FD112505 /* StockStore.swift */; };
 		0F5BD1129F006C6C6AEEF66B /* MascotAlertView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42DD66D82AA68E5D9EC4A058 /* MascotAlertView.swift */; };
@@ -37,6 +39,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		A1ASHARECAL000000000001 /* AShareCalendar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AShareCalendar.swift; sourceTree = "<group>"; };
 		0B03DEF58EB797856C58357E /* QuoteService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteService.swift; sourceTree = "<group>"; };
 		27DCF7E08C464A0588B99499 /* bear-growl.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "bear-growl.wav"; sourceTree = "<group>"; };
 
@@ -155,6 +158,7 @@
 		DB8E00356A2A807FA82DBF5A /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				A1ASHARECAL000000000001 /* AShareCalendar.swift */,
 				4669FABCC327162CF506FD8B /* L10n.swift */,
 				85FEAAF6B2924B4261419804 /* StockModels.swift */,
 			);
@@ -179,6 +183,7 @@
 			buildConfigurationList = C532DB3065313307907EF1AA /* Build configuration list for PBXNativeTarget "MingyHUD" */;
 			buildPhases = (
 				C87D27F2312B85731B24CC5B /* Sources */,
+				A1QUOTEDB000000000000003 /* Frameworks */,
 				B3B8B5DCFD6F66FBF4C40A0D /* Resources */,
 			);
 			buildRules = (
@@ -187,6 +192,7 @@
 			);
 			name = MingyHUD;
 			packageProductDependencies = (
+				A1QUOTEDB000000000000002 /* QuoteDatabase */,
 			);
 			productName = MingyHUD;
 			productReference = D473D6C8AC3210FC0A30A8F7 /* MingyHUD.app */;
@@ -237,6 +243,9 @@
 			);
 			mainGroup = F1A3122C5516AB4FE1CA0508;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A1QUOTEDB000000000000004 /* XCLocalSwiftPackageReference "Packages/QuoteDatabase" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 48C36B3E65DDC3328479E368 /* Products */;
 			projectDirPath = "";
@@ -247,6 +256,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A1QUOTEDB000000000000003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1QUOTEDB000000000000001 /* QuoteDatabase in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXResourcesBuildPhase section */
 
@@ -278,6 +298,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1ASHARECAL000000000002 /* AShareCalendar.swift in Sources */,
 				652C7193EE90D4D4DBAA840D /* FloatingPetView.swift in Sources */,
 				2FB8C424A27402978773D729 /* GlobalHotKeyController.swift in Sources */,
 				EEE3A6002562F31675FBE5AD /* L10n.swift in Sources */,
@@ -547,6 +568,21 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		A1QUOTEDB000000000000004 /* XCLocalSwiftPackageReference "Packages/QuoteDatabase" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/QuoteDatabase;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A1QUOTEDB000000000000002 /* QuoteDatabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1QUOTEDB000000000000004 /* XCLocalSwiftPackageReference "Packages/QuoteDatabase" */;
+			productName = QuoteDatabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 1FBC4EFD17FBC082D81CF501 /* Project object */;
 }

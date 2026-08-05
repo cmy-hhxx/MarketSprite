@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var jsonImportMessage: String?
     @State private var showJSONImport = false
     @State private var confirmJSONImport = false
+    @State private var confirmClearQuoteDB = false
 
     var body: some View {
         NavigationSplitView {
@@ -43,6 +44,7 @@ struct SettingsView: View {
                         dataView
                             .frame(maxWidth: 640, alignment: .topLeading)
                     }
+                    .onAppear { store.refreshQuoteBarCount() }
                 }
             }
             .padding(.horizontal, 28)
@@ -337,7 +339,7 @@ struct SettingsView: View {
                     title: "名称与数字不透明度",
                     icon: "textformat",
                     value: $store.labelOpacity,
-                    range: 0.15...1
+                    range: 0.35...1
                 )
                 Divider().opacity(0.5)
                 opacitySlider(
@@ -688,6 +690,35 @@ struct SettingsView: View {
                 )
             }
 
+            SettingsCard {
+                LabeledContent("A股分钟库行数", value: "\(store.quoteBarCount)")
+                Divider().opacity(0.5)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(tr("库路径"))
+                        .font(.subheadline.weight(.semibold))
+                    Text(store.quoteDatabasePath.isEmpty ? tr("未打开") : store.quoteDatabasePath)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+                Divider().opacity(0.5)
+                Button(role: .destructive) {
+                    confirmClearQuoteDB = true
+                } label: {
+                    Label("清空行情库", systemImage: "trash")
+                }
+                .confirmationDialog(
+                    tr("清空全部已存 A 股分钟数据？此操作不可撤销。"),
+                    isPresented: $confirmClearQuoteDB,
+                    titleVisibility: .visible
+                ) {
+                    Button(tr("清空"), role: .destructive) {
+                        store.clearQuoteDatabase()
+                    }
+                    Button(tr("取消"), role: .cancel) {}
+                }
+            }
+
             Button {
                 Task { await store.refreshAll() }
             } label: {
@@ -704,6 +735,7 @@ struct SettingsView: View {
                     Text("• 公开网页行情可能延迟、限流或调整，不应用于下单决策。")
                     Text("• 港股、美股实时权限受交易所授权约束；若需要交易级数据，可后续接入富途 OpenD 或券商行情。")
                     Text("• 接口失败时不会生成假曲线，只保留最后一次成功数据并标记为过期。")
+                    Text("• A 股分钟线会写入本地 SQLite；收盘后至次日开盘前在曲线上标注 B/S 极值。")
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
