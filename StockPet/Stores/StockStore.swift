@@ -620,7 +620,7 @@ final class StockStore: ObservableObject {
     }
 
     private func notifyShortcutChanged() {
-        NotificationCenter.default.post(name: .stockPetShortcutChanged, object: nil)
+        NotificationCenter.default.post(name: .marketSpriteShortcutChanged, object: nil)
     }
 
     private enum FetchOutcome: Sendable {

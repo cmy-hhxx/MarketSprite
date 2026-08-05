@@ -58,7 +58,7 @@ struct FloatingPetView: View {
         }
         .frame(width: baseWidth, height: baseHeight)
         .contentShape(Rectangle())
-        .onReceive(NotificationCenter.default.publisher(for: .stockPetOpenSettings)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .marketSpriteOpenSettings)) { _ in
             SettingsWindowPresenter.open { openSettings() }
         }
         .animation(.spring(response: 0.38, dampingFraction: 0.78), value: store.activeAlert?.id)

@@ -1,6 +1,6 @@
-name: MingyHUD
+name: MarketSprite
 options:
-  bundleIdPrefix: com.mingyhud
+  bundleIdPrefix: io.github.cmy-hhxx
   deploymentTarget:
     macOS: "14.0"
   xcodeVersion: "16.0"
@@ -8,21 +8,26 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     MACOSX_DEPLOYMENT_TARGET: "14.0"
-    CURRENT_PROJECT_VERSION: 4
-    MARKETING_VERSION: 0.3.0
+    CURRENT_PROJECT_VERSION: 5
+    MARKETING_VERSION: 0.4.0
     CODE_SIGN_STYLE: Automatic
+packages:
+  QuoteDatabase:
+    path: Packages/QuoteDatabase
 targets:
-  MingyHUD:
+  MarketSprite:
     type: application
     platform: macOS
     sources:
       - path: StockPet
+    dependencies:
+      - package: QuoteDatabase
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.mingyhud.app
-        PRODUCT_NAME: MingyHUD
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.cmy-hhxx.marketsprite
+        PRODUCT_NAME: MarketSprite
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: MingyHUD
+        INFOPLIST_KEY_CFBundleDisplayName: MarketSprite
         INFOPLIST_KEY_CFBundleDevelopmentRegion: zh_CN
         INFOPLIST_KEY_LSUIElement: YES
         INFOPLIST_KEY_NSHighResolutionCapable: YES
@@ -30,15 +35,15 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     scheme:
       testTargets:
-        - StockPetTests
-  StockPetTests:
+        - MarketSpriteTests
+  MarketSpriteTests:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - path: StockPetTests
+      - path: MarketSpriteTests
     dependencies:
-      - target: MingyHUD
+      - target: MarketSprite
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.mingyhud.StockPetTests
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.cmy-hhxx.marketsprite.tests
         GENERATE_INFOPLIST_FILE: YES

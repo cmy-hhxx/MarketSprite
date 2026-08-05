@@ -1,7 +1,7 @@
 import XCTest
-@testable import MingyHUD
+@testable import MarketSprite
 
-final class StockPetTests: XCTestCase {
+final class MarketSpriteTests: XCTestCase {
     func testMarketColorConventionIsReversedForUnitedStates() {
         XCTAssertEqual(StockMarket.aShare.colorRole(isRising: true), .red)
         XCTAssertEqual(StockMarket.hongKong.colorRole(isRising: true), .red)
@@ -121,7 +121,7 @@ final class StockPetTests: XCTestCase {
 
     @MainActor
     func testStoreAcceptsMoreThanTenSymbols() {
-        let suiteName = "StockPetTests.\(UUID().uuidString)"
+        let suiteName = "MarketSpriteTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
         let store = StockStore(service: AlwaysFailingQuoteService(), defaults: defaults)
@@ -143,6 +143,59 @@ final class StockPetTests: XCTestCase {
     func testAnimalAlertSoundsAreBundled() {
         XCTAssertNotNil(Bundle.main.url(forResource: "bull-moo", withExtension: "wav"))
         XCTAssertNotNil(Bundle.main.url(forResource: "bear-growl", withExtension: "wav"))
+    }
+
+    func testLegacyPreferencesMigrateOnceWithoutOverwritingCurrentValues() {
+        let suiteName = "MarketSpriteTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set(0.75, forKey: "stockPet.lineOpacity")
+        AppDataMigrator.migratePreferences(
+            legacyDomain: [
+                "stockPet.lineOpacity": 0.3,
+                "stockPet.refreshInterval": 30,
+                "unrelated.preference": true,
+            ],
+            to: defaults
+        )
+
+        XCTAssertEqual(defaults.double(forKey: "stockPet.lineOpacity"), 0.75)
+        XCTAssertEqual(defaults.integer(forKey: "stockPet.refreshInterval"), 30)
+        XCTAssertNil(defaults.object(forKey: "unrelated.preference"))
+        XCTAssertTrue(defaults.bool(forKey: AppDataMigrator.preferencesMigrationMarkerKey))
+
+        AppDataMigrator.migratePreferences(
+            legacyDomain: ["stockPet.refreshInterval": 60],
+            to: defaults
+        )
+        XCTAssertEqual(defaults.integer(forKey: "stockPet.refreshInterval"), 30)
+    }
+
+    func testLegacyApplicationSupportIsCopiedWithoutOverwritingCurrentData() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory
+            .appendingPathComponent("MarketSpriteTests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? fileManager.removeItem(at: root) }
+
+        let legacyFolder = root.appendingPathComponent("MingyHUD", isDirectory: true)
+        let legacyDatabase = legacyFolder.appendingPathComponent("quotes.sqlite")
+        try fileManager.createDirectory(at: legacyFolder, withIntermediateDirectories: true)
+        try Data("legacy".utf8).write(to: legacyDatabase)
+
+        try AppDataMigrator.migrateApplicationSupport(in: root, fileManager: fileManager)
+
+        let currentDatabase = root
+            .appendingPathComponent("MarketSprite", isDirectory: true)
+            .appendingPathComponent("quotes.sqlite")
+        XCTAssertEqual(try Data(contentsOf: currentDatabase), Data("legacy".utf8))
+        XCTAssertTrue(fileManager.fileExists(atPath: legacyDatabase.path))
+
+        try Data("current".utf8).write(to: currentDatabase)
+        try Data("changed legacy".utf8).write(to: legacyDatabase)
+        try AppDataMigrator.migrateApplicationSupport(in: root, fileManager: fileManager)
+        XCTAssertEqual(try Data(contentsOf: currentDatabase), Data("current".utf8))
     }
 }
 

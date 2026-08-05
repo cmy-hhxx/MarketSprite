@@ -1,8 +1,26 @@
 # Changelog
 
+## v0.4.0 - 2026-08-05
+
+### Changed
+
+- Rebranded the macOS application, target, scheme, tests, bundle identifier, and repository identity from MingyHUD/StockPet to MarketSprite.
+- Made `project.yml` the reproducible Xcode project source and pinned XcodeGen with mise.
+- Rewrote the user, development, privacy, attribution, and risk documentation.
+
+### Compatibility
+
+- Copies legacy MingyHUD preferences without overwriting current MarketSprite values.
+- Copies the legacy application-support directory without deleting the original or overwriting current files.
+- Keeps existing preference keys and the floating-window frame key for upgrade compatibility.
+
+### Assets
+
+- App icons, alert sounds, and all files under `StockPet/Resources` are unchanged in this release.
+
 ## v0.3.0
 
-The first public release of MingyHUD.
+The first public release under the MingyHUD name.
 
 ### Highlights
 

@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 struct WindowConfigurator: NSViewRepresentable {
-    static let windowIdentifier = "stock-pet-floating-window"
+    static let windowIdentifier = "market-sprite-floating-window"
 
     let clickThrough: Bool
     let alwaysOnTop: Bool
@@ -39,6 +39,7 @@ struct WindowConfigurator: NSViewRepresentable {
         window.level = alwaysOnTop ? .floating : .normal
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.ignoresMouseEvents = clickThrough
+        // Keep the legacy key so upgrades retain the user's window position.
         window.setFrameAutosaveName("StockPetFloatingFrame")
         window.standardWindowButton(.closeButton)?.isHidden = true
         window.standardWindowButton(.miniaturizeButton)?.isHidden = true
@@ -60,7 +61,7 @@ struct WindowConfigurator: NSViewRepresentable {
             self.window = window
             monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
                 if event.window === self?.window, event.clickCount == 2 {
-                    NotificationCenter.default.post(name: .stockPetOpenSettings, object: nil)
+                    NotificationCenter.default.post(name: .marketSpriteOpenSettings, object: nil)
                 }
                 return event
             }
@@ -75,12 +76,12 @@ struct WindowConfigurator: NSViewRepresentable {
 }
 
 extension Notification.Name {
-    static let stockPetOpenSettings = Notification.Name("stockPet.openSettings")
+    static let marketSpriteOpenSettings = Notification.Name("marketSprite.openSettings")
 }
 
 @MainActor
 enum SettingsWindowPresenter {
-    static let windowIdentifier = "mingyhud-settings-window"
+    static let windowIdentifier = "market-sprite-settings-window"
     static let defaultSize = NSSize(width: 780, height: 660)
     static let minSize = NSSize(width: 680, height: 520)
 

@@ -232,7 +232,7 @@ enum ShortcutKeyOption: String, Codable, CaseIterable, Identifiable {
 }
 
 extension Notification.Name {
-    static let stockPetShortcutChanged = Notification.Name("stockPet.shortcutChanged")
+    static let marketSpriteShortcutChanged = Notification.Name("marketSprite.shortcutChanged")
 }
 
 struct ThresholdGate {

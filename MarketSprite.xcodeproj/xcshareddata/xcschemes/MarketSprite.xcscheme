@@ -15,10 +15,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "59448BF4D585F08E4351D27A"
-               BuildableName = "MingyHUD.app"
-               BlueprintName = "MingyHUD"
-               ReferencedContainer = "container:StockPet.xcodeproj">
+               BlueprintIdentifier = "A41C290D50A8F91D636ECA07"
+               BuildableName = "MarketSprite.app"
+               BlueprintName = "MarketSprite"
+               ReferencedContainer = "container:MarketSprite.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -32,10 +32,10 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "59448BF4D585F08E4351D27A"
-            BuildableName = "MingyHUD.app"
-            BlueprintName = "MingyHUD"
-            ReferencedContainer = "container:StockPet.xcodeproj">
+            BlueprintIdentifier = "A41C290D50A8F91D636ECA07"
+            BuildableName = "MarketSprite.app"
+            BlueprintName = "MarketSprite"
+            ReferencedContainer = "container:MarketSprite.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <Testables>
@@ -44,10 +44,10 @@
             parallelizable = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "B6E354189E76AF8A94DBBBC2"
-               BuildableName = "StockPetTests.xctest"
-               BlueprintName = "StockPetTests"
-               ReferencedContainer = "container:StockPet.xcodeproj">
+               BlueprintIdentifier = "3C12BF58F1354537BE2A9A03"
+               BuildableName = "MarketSpriteTests.xctest"
+               BlueprintName = "MarketSpriteTests"
+               ReferencedContainer = "container:MarketSprite.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -68,10 +68,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "59448BF4D585F08E4351D27A"
-            BuildableName = "MingyHUD.app"
-            BlueprintName = "MingyHUD"
-            ReferencedContainer = "container:StockPet.xcodeproj">
+            BlueprintIdentifier = "A41C290D50A8F91D636ECA07"
+            BuildableName = "MarketSprite.app"
+            BlueprintName = "MarketSprite"
+            ReferencedContainer = "container:MarketSprite.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>
@@ -87,10 +87,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "59448BF4D585F08E4351D27A"
-            BuildableName = "MingyHUD.app"
-            BlueprintName = "MingyHUD"
-            ReferencedContainer = "container:StockPet.xcodeproj">
+            BlueprintIdentifier = "A41C290D50A8F91D636ECA07"
+            BuildableName = "MarketSprite.app"
+            BlueprintName = "MarketSprite"
+            ReferencedContainer = "container:MarketSprite.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>

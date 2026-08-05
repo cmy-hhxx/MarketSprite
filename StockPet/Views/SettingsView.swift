@@ -52,7 +52,7 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(Color(nsColor: .windowBackgroundColor))
         }
-        .navigationTitle("MingyHUD 设置")
+        .navigationTitle("\(AppIdentity.displayName) 设置")
         .sheet(isPresented: $showJSONImport) {
             jsonImportSheet
         }

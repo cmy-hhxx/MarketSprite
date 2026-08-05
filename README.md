@@ -1,136 +1,102 @@
 <p align="center">
-  <img src="docs/assets/app-icon.png" width="112" alt="MingyHUD 图标">
+  <img src="docs/assets/app-icon.png" width="112" alt="MarketSprite 图标">
 </p>
 
-<h1 align="center">MingyHUD</h1>
+<h1 align="center">MarketSprite</h1>
 
 <p align="center">
-  <strong>工作时也能及时关注股价变化，你的股票盯盘桌宠</strong>
+  <strong>常驻桌面的市场观察与智能提醒助手</strong>
 </p>
 
 <p align="center">
   <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111111?logo=apple">
   <img alt="A股 港股 美股" src="https://img.shields.io/badge/市场-A股%20%7C%20港股%20%7C%20美股-EA4C61">
-  <img alt="Version 0.3.0" src="https://img.shields.io/badge/version-0.3.0-5B67F1">
+  <img alt="Version 0.4.0" src="https://img.shields.io/badge/version-0.4.0-5B67F1">
   <img alt="MIT License" src="https://img.shields.io/badge/license-MIT-4C9A2A">
 </p>
 
 <p align="center">
-  <img src="docs/assets/hero-bull-alert.gif" width="760" alt="MingyHUD 牛牛涨幅提醒演示">
+  <img src="docs/assets/screenshot-stock-list.webp" width="760" alt="MarketSprite 桌面行情面板">
 </p>
 
-## 目录
+MarketSprite 是一个原生 macOS 桌面行情工具。它把自选股、当日分时、最新价和涨跌幅留在桌面边缘，在价格越过阈值时通过小牛或小熊提醒你，而不要求一直打开完整行情软件。
 
-- [背景介绍](#背景介绍)
-- [快速开始](#快速开始)
-- [功能详解](#功能详解)
-- [数据与风险说明](#数据与风险说明)
+当前版本聚焦可靠的行情观察和提醒。面向行情解释、研究与多 Agent 协作的能力仍在规划中，尚未包含在 v0.4.0。
 
-## 背景介绍
+## 当前能力
 
-在电脑前工作时，很难一直开着完整的行情软件：窗口占地方，频繁切换会打断工作节奏，还容易被同事/老板看到……
+- 搜索并关注 A 股、港股和美股，不限制自选股数量。
+- 展示真实当日分钟线；腾讯分时失败时自动尝试东方财富。
+- 中国内地和香港市场红涨绿跌，美股绿涨红跌。
+- 按昨收涨跌幅或逐股目标价格触发牛熊提醒。
+- 回到阈值内侧后才重新布防，避免价格在边缘反复提醒。
+- 调节整体缩放、紧凑模式、曲线/文字/背景透明度。
+- 支持始终置顶、拖动、鼠标穿透和全局显示/隐藏快捷键。
+- 通过 JSON 批量导入自选股。
+- 将 A 股分钟数据写入本地 SQLite，并在收盘后显示当日 B/S 极值。
 
-MingyHUD 把股票名称、当日分时线、最新价和涨跌幅留在桌面上，支持 A 股、港股和美股。平时它安静展示行情，触及设定条件时再由小牛或小熊提醒；同时提供缩放、不透明度、鼠标穿透和快捷隐藏等设置，让看盘不打扰工作（摸鱼不被发现）。
+## 使用
 
-## 快速开始
+1. 启动应用后，双击桌面行情面板打开设置。
+2. 搜索名称或代码，例如 `贵州茅台`、`00700`、`AAPL`。
+3. 在“牛熊提醒”中选择涨跌幅或目标价格，并设置提醒阈值。
+4. 在“外观与交互”中调整透明度、置顶、鼠标穿透和快捷键。
 
-### macOS
+默认显示/隐藏快捷键为 `⌘ + ⌥ + S`。开启鼠标穿透后，可从菜单栏的曲线图标重新关闭。
 
-1. 解压 ZIP，将 MingyHUD 拖入“应用程序”文件夹。
-2. 首次启动若提示无法验证开发者，请前往“系统设置 → 隐私与安全性”确认打开。
-3. 双击桌面行情区域打开设置，搜索名称或代码添加股票。
+## 从源码构建
 
-> 当前发布包未使用商业代码签名证书，因此系统首次打开时可能显示来源提醒。
+当前仓库暂未提供已签名的安装包，需要从源码构建：
 
-### 三步开始
+```bash
+git clone https://github.com/cmy-hhxx/MarketSprite.git
+cd MarketSprite
+mise install
+mise exec -- xcodegen generate
+open MarketSprite.xcodeproj
+```
 
-1. **添加股票**：双击桌宠进入设置，搜索名称或代码，例如 `贵州茅台`、`00700`、`AAPL`。
-2. **调成喜欢的样子**：设置大小、曲线不透明度、名称与数字不透明度、背景板不透明度。
-3. **交给牛熊值班**：设置上涨和下跌阈值，再选一组顺手的显示 / 隐藏快捷键。
+要求：
 
-默认快捷键：
+- macOS 14 或更高版本
+- Xcode 16 或更高版本
+- [mise](https://mise.jdx.dev/)
 
-| 平台 | 显示 / 隐藏桌宠 |
-| --- | --- |
-| macOS | `⌘ + ⌥ + S` |
+命令行测试：
 
-## 功能详解
+```bash
+xcodebuild test \
+  -project MarketSprite.xcodeproj \
+  -scheme MarketSprite \
+  -destination 'platform=macOS,arch=arm64' \
+  CODE_SIGNING_ALLOWED=NO
+```
 
-### 桌面状态：平时，它安安静静
+更多开发约定见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)。
 
-<p align="center">
-  <img src="docs/assets/screenshot-stock-list.webp" width="760" alt="MingyHUD 在真实桌面背景上显示自选股行情">
-</p>
+## 数据与隐私
 
-- 同时查看 A 股、港股和美股，自选股数量不设上限。
-- 每只股票展示真实的当日分时曲线，左侧为名称，右侧为最新价与涨跌幅。
-- A 股、港股红涨绿跌；美股绿涨红跌。
-- 股票名称、代码、市场、价格、涨跌幅与曲线保持同一涨跌色。
-- 股票较多时可直接在桌宠内上下滚动。
+- 股票搜索会访问东方财富，分时行情优先访问腾讯并以东方财富备用。
+- 自选股、显示设置和提醒设置保存在本机偏好中。
+- A 股分钟数据保存在 `~/Library/Application Support/MarketSprite/quotes.sqlite`。
+- 应用不包含账号系统、广告、埋点或遥测。
+- 从 MingyHUD 升级时，MarketSprite 会复制旧偏好和数据库；旧数据不会被删除或覆盖。
 
-### 牛熊阈值提醒：需要时，牛牛和小熊会来
-
-<p align="center">
-  <img src="docs/assets/screenshot-alerts.webp" width="752" alt="MingyHUD 牛熊提醒设置">
-</p>
-
-- 支持按“最新价相对昨收的涨跌幅”提醒，也支持为每只股票设置“小牛目标价 / 小熊目标价”。
-- 目标价模式会实时显示自选股最新价，可按现价一键生成上下目标，也可以逐只修改。
-- 越过上涨阈值或小牛目标价时，小牛会冒出来；跌破下跌阈值或小熊目标价时，小熊会出现。
-- 牛叫与熊叫可以分别开启或关闭，整个牛熊提醒也可以一键关闭。
-- 提醒卡片可独立调节不透明度。
-- 每次越界只提醒一次；价格回到阈值内侧后才会重新布防，避免在边缘反复提醒。
-
-<p align="center">
-  <img src="docs/assets/screenshot-target-price-zh.webp" width="752" alt="MingyHUD 逐股目标价格提醒设置">
-</p>
-
-例如上涨阈值设为 `+3.0%`：首次达到 `+3.0%` 时提醒；回落到 `+2.85%` 以下后重新布防；再次达到 `+3.0%` 时才会再次提醒。
-
-### 摸鱼隐私设置：融进桌面，也能随时收起来
-
-<p align="center">
-  <img src="docs/assets/screenshot-appearance.webp" width="752" alt="MingyHUD 外观、交互与快捷键设置">
-</p>
-
-<p align="center">
-  <img src="docs/assets/opacity-demo-zh.gif" width="760" alt="MingyHUD 背景板先变透明，文字与曲线再同步变透明">
-</p>
-
-- **整体缩放**：从 `65%` 到 `160%`，股票、曲线和背景板一起变化。
-- **三组不透明度**：曲线、名称与数字、背景板分别调节。
-- **拖拽摆放**：放在桌面上任何顺眼的位置。
-- **双击设置**：双击行情板或曲线即可打开设置。
-- **快捷显示 / 隐藏**：全局快捷键可以开启、关闭和重新组合。
-- **锁定并穿透鼠标**：不挡住下方窗口的点击和滚动。
-- **始终置顶**：切换工作窗口时，行情仍留在视线边缘。
-
-**同事或老板从身边经过时，不会一眼看到一个醒目的看盘窗口，少一点被撞见摸鱼的尴尬。**
-
-### 功能一览
-
-| 能力 | 说明 |
-| --- | --- |
-| 多市场行情 | 搜索并添加 A 股、港股、美股 |
-| 不限自选股数量 | 可添加、删除、排序，长列表支持滚动 |
-| 当日分时曲线 | 展示真实分钟数据，不生成虚构曲线 |
-| 市场配色 | A 股 / 港股红涨绿跌，美股绿涨红跌 |
-| 外观控制 | 整体缩放，曲线、文字数字与背景板不透明度独立调节 |
-| 桌面交互 | 拖拽、双击设置、始终置顶、鼠标穿透 |
-| 快捷隐藏 | 自定义全局快捷键，一键显示或隐藏 |
-| 牛熊提醒 | 昨收涨跌幅或逐股目标价、实时价生成目标、总开关、不透明度和声音 |
-| 防重复提醒 | 回到阈值内侧后重新布防 |
-| 行情容错 | 腾讯分时为主、东方财富备用，失败时标记过期数据 |
-
-## 数据与风险说明
-
-- 股票搜索覆盖 A 股、港股和美股。
-- 腾讯分时行情为主数据源，东方财富作为故障备用。
-- 刷新频率可在设置中调整。
-- 接口失败时不会绘制随机或模拟曲线；有成功数据时会保留最后一次结果并标记为过期。
-- 港股、美股实时权限受交易所授权规则约束，公开行情可能存在延迟、限流或调整。
+完整说明见 [docs/PRIVACY.md](docs/PRIVACY.md)。公开网页行情可能延迟、限流或调整，不应作为下单依据。
 
 > [!CAUTION]
-> MingyHUD 仅用于个人辅助查看行情，不构成投资建议，也不应作为下单依据。公开网页行情不保证交易级实时性、完整性或准确性。任何投资决策及其结果由使用者自行承担。
+> MarketSprite 仅用于个人辅助查看行情，不构成投资建议。任何投资决策及其结果由使用者自行承担。
 
-本项目采用 [MIT License](LICENSE)。
+## 路线
+
+- 将行情、公告和本地自选股整理为统一上下文。
+- 引入可解释的市场观察 Agent，而不是直接生成交易指令。
+- 为 Agent 增加明确的权限边界、来源标注和隐私控制。
+
+路线仅表示方向，不代表已经交付或承诺发布时间。
+
+## 来源与许可
+
+MarketSprite 基于 [YellowPancake/StockPet](https://github.com/YellowPancake/StockPet) 的 MIT 授权代码继续开发。原作者版权声明已保留在 [LICENSE](LICENSE) 中。
+
+提醒音效的来源与 CC0 说明见 [StockPet/Resources/Sounds/README.md](StockPet/Resources/Sounds/README.md)。本项目采用 [MIT License](LICENSE)。

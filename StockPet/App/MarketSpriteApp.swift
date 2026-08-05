@@ -2,12 +2,19 @@ import AppKit
 import SwiftUI
 
 @main
-struct StockPetApp: App {
+struct MarketSpriteApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @StateObject private var store = StockStore()
+    @StateObject private var store: StockStore
+
+    init() {
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
+            AppDataMigrator.migrateLegacyUserData()
+        }
+        _store = StateObject(wrappedValue: StockStore())
+    }
 
     var body: some Scene {
-        WindowGroup("MingyHUD", id: "stock-pet") {
+        WindowGroup(AppIdentity.displayName, id: "market-sprite") {
             FloatingPetView()
                 .environmentObject(store)
                 .background(
@@ -27,7 +34,7 @@ struct StockPetApp: App {
         .windowResizability(.contentSize)
         .defaultPosition(.topTrailing)
 
-        MenuBarExtra("MingyHUD", systemImage: "chart.xyaxis.line") {
+        MenuBarExtra(AppIdentity.displayName, systemImage: "chart.xyaxis.line") {
             MenuBarContent()
                 .environmentObject(store)
         }
@@ -72,7 +79,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.togglePetWindow()
         }
         shortcutObserver = NotificationCenter.default.addObserver(
-            forName: .stockPetShortcutChanged,
+            forName: .marketSpriteShortcutChanged,
             object: nil,
             queue: .main
         ) { [weak self] _ in
@@ -138,7 +145,7 @@ struct MenuBarContent: View {
 
         Divider()
 
-        Button(tr("退出 MingyHUD")) {
+        Button(tr("退出 \(AppIdentity.displayName)")) {
             NSApp.terminate(nil)
         }
         .keyboardShortcut("q")

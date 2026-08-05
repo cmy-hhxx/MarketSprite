@@ -3,7 +3,7 @@ import GRDB
 
 /// Opens and migrates the local quotes SQLite database.
 public enum QuoteDatabase {
-    public static let defaultAppFolderName = "MingyHUD"
+    public static let defaultAppFolderName = "MarketSprite"
     public static let defaultFileName = "quotes.sqlite"
 
     /// Opens `~/Library/Application Support/<appFolderName>/quotes.sqlite`.
