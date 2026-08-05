@@ -21,22 +21,34 @@ struct SettingsView: View {
                 Label(section.title, systemImage: section.icon)
                     .tag(section)
             }
-            .navigationSplitViewColumnWidth(min: 145, ideal: 160)
+            .listStyle(.sidebar)
+            .navigationSplitViewColumnWidth(min: 150, ideal: 168, max: 190)
         } detail: {
             Group {
                 switch selectedSection {
                 case .watchlist:
                     watchlistView
                 case .appearance:
-                    appearanceView
+                    ScrollView {
+                        appearanceView
+                            .frame(maxWidth: 640, alignment: .topLeading)
+                    }
                 case .alerts:
-                    alertsView
+                    ScrollView {
+                        alertsView
+                            .frame(maxWidth: 640, alignment: .topLeading)
+                    }
                 case .data:
-                    dataView
+                    ScrollView {
+                        dataView
+                            .frame(maxWidth: 640, alignment: .topLeading)
+                    }
                 }
             }
-            .padding(24)
+            .padding(.horizontal, 28)
+            .padding(.vertical, 22)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(Color(nsColor: .windowBackgroundColor))
         }
         .navigationTitle("MingyHUD 设置")
         .sheet(isPresented: $showJSONImport) {
@@ -45,7 +57,7 @@ struct SettingsView: View {
     }
 
     private var watchlistView: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 16) {
             pageTitle("桌面股票", subtitle: "搜索名称或代码，也可通过 JSON 批量导入")
 
             if let sourceError = store.sourceError {
@@ -54,7 +66,7 @@ struct SettingsView: View {
                     .foregroundStyle(.orange)
             }
 
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 TextField("例如：贵州茅台、00700、AAPL", text: $query)
                     .textFieldStyle(.roundedBorder)
                     .onSubmit { runSearch() }
@@ -65,98 +77,128 @@ struct SettingsView: View {
                     if isSearching {
                         ProgressView().controlSize(.small)
                     } else {
-                        Label("搜索", systemImage: "magnifyingglass")
+                        Text("搜索")
                     }
                 }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.regular)
                 .disabled(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSearching)
 
                 Button {
                     fillJSONExample(copyToPasteboard: false, announce: false)
                     showJSONImport = true
                 } label: {
-                    Label("JSON 导入", systemImage: "curlybraces")
+                    Text("JSON 导入")
                 }
+                .buttonStyle(.bordered)
             }
 
             if let searchMessage {
-                Label(searchMessage, systemImage: "info.circle")
+                Text(searchMessage)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             if !results.isEmpty {
-                ScrollView(.vertical) {
-                    LazyVStack(spacing: 0) {
-                        ForEach(results) { symbol in
-                            HStack {
-                                MarketBadge(market: symbol.market)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(symbol.name).fontWeight(.semibold)
-                                    Text(symbol.code).font(.caption.monospaced()).foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Button(tr(store.symbols.contains(symbol) ? "已添加" : "添加")) {
-                                    searchMessage = store.add(symbol)
-                                    if searchMessage == nil {
-                                        searchMessage = String(
-                                            format: tr("已把 %@ 放到桌面"),
-                                            symbol.name
-                                        )
-                                    }
-                                }
-                                .disabled(store.symbols.contains(symbol))
+                VStack(spacing: 0) {
+                    ForEach(results) { symbol in
+                        HStack(spacing: 10) {
+                            MarketBadge(market: symbol.market)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(symbol.name).fontWeight(.medium)
+                                Text(symbol.code)
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(.secondary)
                             }
-                            .padding(10)
-                            if symbol.id != results.last?.id {
-                                Divider()
+                            Spacer(minLength: 8)
+                            Button(tr(store.symbols.contains(symbol) ? "已添加" : "添加")) {
+                                searchMessage = store.add(symbol)
+                                if searchMessage == nil {
+                                    searchMessage = String(
+                                        format: tr("已把 %@ 放到桌面"),
+                                        symbol.name
+                                    )
+                                }
                             }
+                            .buttonStyle(.borderless)
+                            .disabled(store.symbols.contains(symbol))
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 9)
+                        if symbol.id != results.last?.id {
+                            Divider().padding(.leading, 12)
                         }
                     }
                 }
-                .frame(maxHeight: 140)
-                .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
+                .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+                )
+                .frame(maxHeight: 148)
             }
 
-            HStack {
+            HStack(alignment: .firstTextBaseline) {
                 Text("\(tr("当前")) \(store.symbols.count) \(tr("只"))")
-                    .font(.headline)
-                Spacer()
-                Text("拖动列表行排序")
-                    .font(.caption)
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
-            }
-
-            List {
-                ForEach(store.symbols) { symbol in
-                    HStack(spacing: 10) {
-                        MarketBadge(market: symbol.market)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(symbol.name).fontWeight(.semibold)
-                            Text("\(symbol.code) · \(symbol.market.displayName)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer(minLength: 8)
-                        if let quote = store.quotes[symbol.id] {
-                            Text(String(format: "%@%.2f%%", quote.changePercent >= 0 ? "+" : "", quote.changePercent))
-                                .font(.caption.bold().monospacedDigit())
-                                .foregroundStyle(symbol.market.colorRole(isRising: quote.changePercent >= 0).color)
-                        }
-                        Button(role: .destructive) {
-                            store.remove(symbol)
-                        } label: {
-                            Image(systemName: "trash")
-                        }
-                        .buttonStyle(.borderless)
-                        .help(tr("删除"))
-                    }
-                    .padding(.vertical, 2)
+                Spacer()
+                if !store.symbols.isEmpty {
+                    Text("拖动排序")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
                 }
-                .onMove(perform: store.moveSymbols)
             }
-            .listStyle(.inset(alternatesRowBackgrounds: true))
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.top, 4)
+
+            if store.symbols.isEmpty {
+                Text(tr("还没有股票，搜索名称或代码后添加"))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 96, alignment: .center)
+                    .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            } else {
+                List {
+                    ForEach(store.symbols) { symbol in
+                        HStack(spacing: 10) {
+                            MarketBadge(market: symbol.market)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(symbol.name).fontWeight(.medium)
+                                Text("\(symbol.code) · \(symbol.market.displayName)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer(minLength: 8)
+                            if let quote = store.quotes[symbol.id] {
+                                Text(String(format: "%@%.2f%%", quote.changePercent >= 0 ? "+" : "", quote.changePercent))
+                                    .font(.caption.weight(.semibold).monospacedDigit())
+                                    .foregroundStyle(symbol.market.colorRole(isRising: quote.changePercent >= 0).color)
+                            }
+                            Button(role: .destructive) {
+                                store.remove(symbol)
+                            } label: {
+                                Image(systemName: "trash")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.borderless)
+                            .help(tr("删除"))
+                        }
+                        .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
+                        .listRowSeparator(.visible)
+                    }
+                    .onMove(perform: store.moveSymbols)
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.primary.opacity(0.03))
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
+        .frame(maxWidth: 720, alignment: .topLeading)
     }
 
     private var jsonImportSheet: some View {
@@ -270,7 +312,7 @@ struct SettingsView: View {
     }
 
     private var appearanceView: some View {
-        VStack(alignment: .leading, spacing: 22) {
+        VStack(alignment: .leading, spacing: 18) {
             pageTitle("外观与交互", subtitle: "让它融进桌面，而不是挡住工作")
 
             SettingsCard {
@@ -283,21 +325,21 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                         .frame(width: 40, alignment: .trailing)
                 }
-                Divider()
+                Divider().opacity(0.5)
                 opacitySlider(
                     title: "曲线不透明度",
                     icon: "waveform.path.ecg",
                     value: $store.lineOpacity,
                     range: 0.15...1
                 )
-                Divider()
+                Divider().opacity(0.5)
                 opacitySlider(
                     title: "名称与数字不透明度",
                     icon: "textformat",
                     value: $store.labelOpacity,
                     range: 0.15...1
                 )
-                Divider()
+                Divider().opacity(0.5)
                 opacitySlider(
                     title: "背景板不透明度",
                     icon: "square.on.square",
@@ -310,18 +352,19 @@ struct SettingsView: View {
                 Toggle(isOn: $store.compactMode) {
                     Label("紧凑模式", systemImage: "rectangle.compress.vertical")
                 }
-                Divider()
+                Divider().opacity(0.5)
                 Toggle(isOn: $store.alwaysOnTop) {
                     Label("始终置顶", systemImage: "pin.fill")
                 }
-                Divider()
-                VStack(alignment: .leading, spacing: 5) {
+                Divider().opacity(0.5)
+                VStack(alignment: .leading, spacing: 4) {
                     Toggle(isOn: $store.clickThrough) {
                         Label("锁定并穿透鼠标", systemImage: "cursorarrow.slash")
                     }
                     Text("锁定后需从菜单栏的曲线图标关闭穿透。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .padding(.leading, 28)
                 }
             }
 
@@ -329,7 +372,7 @@ struct SettingsView: View {
                 Toggle(isOn: $store.shortcutEnabled) {
                     Label("快捷键显示/隐藏桌宠", systemImage: "keyboard")
                 }
-                Divider()
+                Divider().opacity(0.5)
                 HStack {
                     Text("快捷键组合")
                     Spacer()
@@ -359,11 +402,12 @@ struct SettingsView: View {
             Button("恢复默认外观") {
                 store.resetAppearance()
             }
+            .buttonStyle(.bordered)
         }
     }
 
     private var alertsView: some View {
-        VStack(alignment: .leading, spacing: 22) {
+        VStack(alignment: .leading, spacing: 18) {
             pageTitle(
                 "牛熊提醒",
                 subtitle: store.alertBasis == .percentage
@@ -375,7 +419,7 @@ struct SettingsView: View {
                 Toggle(isOn: $store.alertsEnabled) {
                     Label("开启牛熊提醒", systemImage: "bell.badge.fill")
                 }
-                Divider()
+                Divider().opacity(0.5)
                 HStack {
                     Label("提醒依据", systemImage: "scope")
                     Spacer()
@@ -388,7 +432,7 @@ struct SettingsView: View {
                     .labelsHidden()
                     .frame(width: 260)
                 }
-                Divider()
+                Divider().opacity(0.5)
                 Group {
                     if store.alertBasis == .percentage {
                         thresholdRow(
@@ -397,7 +441,7 @@ struct SettingsView: View {
                             value: $store.risingThreshold,
                             color: .red
                         )
-                        Divider()
+                        Divider().opacity(0.5)
                         thresholdRow(
                             title: "下跌超过",
                             mascot: "🐻",
@@ -407,18 +451,18 @@ struct SettingsView: View {
                     } else {
                         priceAlertControls
                     }
-                    Divider()
+                    Divider().opacity(0.5)
                     opacitySlider(
                         title: "提醒不透明度",
                         icon: "circle.lefthalf.filled",
                         value: $store.alertOpacity,
                         range: 0.2...1
                     )
-                    Divider()
+                    Divider().opacity(0.5)
                     Toggle(isOn: $store.bullSoundEnabled) {
                         Label("小牛提示音（短促牛叫）", systemImage: "speaker.wave.2.fill")
                     }
-                    Divider()
+                    Divider().opacity(0.5)
                     Toggle(isOn: $store.bearSoundEnabled) {
                         Label("小熊提示音（短促吼声）", systemImage: "speaker.wave.2.fill")
                     }
@@ -434,16 +478,19 @@ struct SettingsView: View {
                         : "目标价提醒触发后，价格回到目标内侧至少 0.15% 才会重新布防。行情按刷新频率持续更新。"
                 )
             )
-                .font(.callout)
-                .foregroundStyle(.secondary)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
 
-            HStack {
-                Button("预览小牛与牛叫声") {
+            HStack(spacing: 10) {
+                Button("预览小牛") {
                     store.testAlert(.rising)
                 }
-                Button("预览小熊与短吼声") {
+                .buttonStyle(.bordered)
+                Button("预览小熊") {
                     store.testAlert(.falling)
                 }
+                .buttonStyle(.bordered)
             }
         }
     }
@@ -610,7 +657,7 @@ struct SettingsView: View {
     }
 
     private var dataView: some View {
-        VStack(alignment: .leading, spacing: 22) {
+        VStack(alignment: .leading, spacing: 18) {
             pageTitle("数据与刷新")
 
             SettingsCard {
@@ -625,9 +672,9 @@ struct SettingsView: View {
                     .labelsHidden()
                     .frame(width: 100)
                 }
-                Divider()
+                Divider().opacity(0.5)
                 LabeledContent("当前数据源", value: tr("腾讯分时 · 东方财富备用"))
-                Divider()
+                Divider().opacity(0.5)
                 LabeledContent(
                     "最近刷新",
                     value: store.lastRefresh?.formatted(
@@ -646,19 +693,25 @@ struct SettingsView: View {
             } label: {
                 Label("立即刷新全部股票", systemImage: "arrow.clockwise")
             }
+            .buttonStyle(.borderedProminent)
 
-            GroupBox("使用说明") {
-                VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("使用说明")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 6) {
                     Text("• 本应用仅用于个人辅助查看，不构成投资建议。")
                     Text("• 公开网页行情可能延迟、限流或调整，不应用于下单决策。")
                     Text("• 港股、美股实时权限受交易所授权约束；若需要交易级数据，可后续接入富途 OpenD 或券商行情。")
                     Text("• 接口失败时不会生成假曲线，只保留最后一次成功数据并标记为过期。")
                 }
-                .font(.callout)
+                .font(.caption)
                 .foregroundStyle(.secondary)
-                .padding(6)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
             }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
     }
 
@@ -685,15 +738,16 @@ struct SettingsView: View {
     }
 
     private func pageTitle(_ title: String, subtitle: String? = nil) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(tr(title))
-                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .font(.title2.weight(.semibold))
             if let subtitle, !subtitle.isEmpty {
                 Text(tr(subtitle))
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
         }
+        .padding(.bottom, 4)
     }
 
     private func opacitySlider(
@@ -720,12 +774,12 @@ struct SettingsView: View {
         color: Color
     ) -> some View {
         HStack(spacing: 12) {
-            Text(mascot).font(.system(size: 25))
+            Text(mascot).font(.system(size: 22))
             Text(tr(title)).frame(width: 80, alignment: .leading)
             Slider(value: value, in: 0.5...15, step: 0.5)
                 .tint(color)
             Text(String(format: "%.1f%%", value.wrappedValue))
-                .font(.body.bold().monospacedDigit())
+                .font(.body.weight(.semibold).monospacedDigit())
                 .frame(width: 52, alignment: .trailing)
         }
     }
@@ -762,11 +816,15 @@ private struct SettingsCard<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 12) {
             content
         }
         .padding(16)
-        .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+        .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+        )
     }
 }
 
@@ -775,18 +833,18 @@ private struct MarketBadge: View {
 
     var body: some View {
         Text(market.displayName)
-            .font(.caption2.bold())
+            .font(.caption2.weight(.semibold))
             .padding(.horizontal, 7)
-            .padding(.vertical, 4)
-            .foregroundStyle(.white)
-            .background(badgeColor, in: Capsule())
+            .padding(.vertical, 3)
+            .foregroundStyle(badgeColor)
+            .background(badgeColor.opacity(0.14), in: Capsule())
     }
 
     private var badgeColor: Color {
         switch market {
-        case .aShare: .red.opacity(0.78)
-        case .hongKong: .orange.opacity(0.82)
-        case .unitedStates: .blue.opacity(0.82)
+        case .aShare: .red
+        case .hongKong: .orange
+        case .unitedStates: .blue
         }
     }
 }

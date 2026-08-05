@@ -36,8 +36,19 @@ struct StockPetApp: App {
         Settings {
             SettingsView()
                 .environmentObject(store)
-                .frame(width: 660, height: 760)
+                .frame(
+                    minWidth: SettingsWindowPresenter.minSize.width,
+                    maxWidth: .infinity,
+                    minHeight: SettingsWindowPresenter.minSize.height,
+                    maxHeight: .infinity
+                )
+                .background(SettingsWindowChrome())
         }
+        .defaultSize(
+            width: SettingsWindowPresenter.defaultSize.width,
+            height: SettingsWindowPresenter.defaultSize.height
+        )
+        .windowResizability(.contentMinSize)
     }
 }
 
@@ -104,6 +115,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 struct MenuBarContent: View {
     @EnvironmentObject private var store: StockStore
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         Button(tr(petWindow?.isVisible == true ? "隐藏桌宠" : "显示桌宠")) {
@@ -120,8 +132,8 @@ struct MenuBarContent: View {
 
         Divider()
 
-        SettingsLink {
-            Text(tr("设置…"))
+        Button(tr("设置…")) {
+            SettingsWindowPresenter.open { openSettings() }
         }
 
         Divider()

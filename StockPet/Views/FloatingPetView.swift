@@ -59,8 +59,7 @@ struct FloatingPetView: View {
         .frame(width: baseWidth, height: baseHeight)
         .contentShape(Rectangle())
         .onReceive(NotificationCenter.default.publisher(for: .stockPetOpenSettings)) { _ in
-            NSApp.activate(ignoringOtherApps: true)
-            openSettings()
+            SettingsWindowPresenter.open { openSettings() }
         }
         .animation(.spring(response: 0.38, dampingFraction: 0.78), value: store.activeAlert?.id)
         .animation(.easeInOut(duration: 0.2), value: store.compactMode)
