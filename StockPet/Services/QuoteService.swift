@@ -18,7 +18,6 @@ actor MarketQuoteService: QuoteProviding {
             configuration.timeoutIntervalForRequest = 15
             configuration.timeoutIntervalForResource = 20
             configuration.waitsForConnectivity = false
-            configuration.connectionProxyDictionary = [:]
             self.session = URLSession(configuration: configuration)
         }
     }

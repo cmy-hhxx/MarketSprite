@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct SettingsView: View {
@@ -9,6 +10,10 @@ struct SettingsView: View {
     @State private var selectedSection: SettingsSection = .watchlist
     @State private var isRefreshingAlertPrices = false
     @State private var alertPriceMessage: String?
+    @State private var jsonImportText = ""
+    @State private var jsonImportMessage: String?
+    @State private var showJSONImport = false
+    @State private var confirmJSONImport = false
 
     var body: some View {
         NavigationSplitView {
@@ -34,11 +39,20 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .navigationTitle("MingyHUD 设置")
+        .sheet(isPresented: $showJSONImport) {
+            jsonImportSheet
+        }
     }
 
     private var watchlistView: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            pageTitle("桌面股票", subtitle: "搜索名称或代码，股票数量不设上限")
+        VStack(alignment: .leading, spacing: 14) {
+            pageTitle("桌面股票", subtitle: "搜索名称或代码，也可通过 JSON 批量导入")
+
+            if let sourceError = store.sourceError {
+                Label(sourceError, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
 
             HStack(spacing: 8) {
                 TextField("例如：贵州茅台、00700、AAPL", text: $query)
@@ -55,6 +69,13 @@ struct SettingsView: View {
                     }
                 }
                 .disabled(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSearching)
+
+                Button {
+                    fillJSONExample(copyToPasteboard: false, announce: false)
+                    showJSONImport = true
+                } label: {
+                    Label("JSON 导入", systemImage: "curlybraces")
+                }
             }
 
             if let searchMessage {
@@ -74,14 +95,14 @@ struct SettingsView: View {
                                     Text(symbol.code).font(.caption.monospaced()).foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                            Button(tr(store.symbols.contains(symbol) ? "已添加" : "添加")) {
-                                searchMessage = store.add(symbol)
-                                if searchMessage == nil {
-                                    searchMessage = String(
-                                        format: tr("已把 %@ 放到桌面"),
-                                        symbol.name
-                                    )
-                                }
+                                Button(tr(store.symbols.contains(symbol) ? "已添加" : "添加")) {
+                                    searchMessage = store.add(symbol)
+                                    if searchMessage == nil {
+                                        searchMessage = String(
+                                            format: tr("已把 %@ 放到桌面"),
+                                            symbol.name
+                                        )
+                                    }
                                 }
                                 .disabled(store.symbols.contains(symbol))
                             }
@@ -92,7 +113,7 @@ struct SettingsView: View {
                         }
                     }
                 }
-                .frame(maxHeight: 190)
+                .frame(maxHeight: 140)
                 .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
             }
 
@@ -100,7 +121,7 @@ struct SettingsView: View {
                 Text("\(tr("当前")) \(store.symbols.count) \(tr("只"))")
                     .font(.headline)
                 Spacer()
-                Text("拖动右侧把手排序")
+                Text("拖动列表行排序")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -115,7 +136,7 @@ struct SettingsView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                        Spacer()
+                        Spacer(minLength: 8)
                         if let quote = store.quotes[symbol.id] {
                             Text(String(format: "%@%.2f%%", quote.changePercent >= 0 ? "+" : "", quote.changePercent))
                                 .font(.caption.bold().monospacedDigit())
@@ -127,14 +148,125 @@ struct SettingsView: View {
                             Image(systemName: "trash")
                         }
                         .buttonStyle(.borderless)
+                        .help(tr("删除"))
                     }
-                    .padding(.vertical, 3)
+                    .padding(.vertical, 2)
                 }
                 .onMove(perform: store.moveSymbols)
             }
-            .listStyle(.inset)
-            .frame(minHeight: 270)
+            .listStyle(.inset(alternatesRowBackgrounds: true))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+
+    private var jsonImportSheet: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text(tr("通过 JSON 导入"))
+                    .font(.title2.bold())
+                Spacer()
+                Button(tr("关闭")) {
+                    showJSONImport = false
+                }
+                .keyboardShortcut(.cancelAction)
+            }
+
+            Text("必填：code、name、market（aShare / hongKong / unitedStates）。quoteID 可选，缺省时按市场自动推导。导入将替换当前桌面列表。")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                Button("填入当前示例") {
+                    fillJSONExample(copyToPasteboard: false, announce: true)
+                }
+                Button("复制到剪贴板") {
+                    fillJSONExample(copyToPasteboard: true, announce: true)
+                }
+                Spacer()
+                if let jsonImportMessage {
+                    Text(jsonImportMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+
+            TextEditor(text: $jsonImportText)
+                .font(.system(size: 12, design: .monospaced))
+                .scrollContentBackground(.hidden)
+                .padding(10)
+                .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.secondary.opacity(0.25), lineWidth: 1)
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            HStack {
+                Spacer()
+                Button {
+                    if store.symbols.isEmpty {
+                        applyJSONImport()
+                    } else {
+                        confirmJSONImport = true
+                    }
+                } label: {
+                    Label("导入 JSON", systemImage: "square.and.arrow.down")
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(!canImportJSON)
+            }
+        }
+        .padding(20)
+        .frame(width: 520, height: 480)
+        .confirmationDialog(
+            tr("用 JSON 替换当前桌面股票？"),
+            isPresented: $confirmJSONImport,
+            titleVisibility: .visible
+        ) {
+            Button(tr("替换并导入"), role: .destructive) {
+                applyJSONImport()
+            }
+            Button(tr("取消"), role: .cancel) {}
+        } message: {
+            Text(
+                String(
+                    format: tr("当前有 %d 只股票，导入后将被 JSON 中的列表替换，此操作不可撤销。"),
+                    store.symbols.count
+                )
+            )
+        }
+    }
+
+    private var canImportJSON: Bool {
+        let trimmed = jsonImportText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != "[]" else { return false }
+        return true
+    }
+
+    private func applyJSONImport() {
+        let result = store.importSymbols(fromJSON: jsonImportText)
+        jsonImportMessage = result.message
+        if case .success = result {
+            showJSONImport = false
+        }
+    }
+
+    private func fillJSONExample(copyToPasteboard: Bool, announce: Bool) {
+        let example = store.symbolsJSONExample()
+        jsonImportText = example
+        if copyToPasteboard {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(example, forType: .string)
+        }
+        guard announce else {
+            jsonImportMessage = nil
+            return
+        }
+        jsonImportMessage = tr(
+            copyToPasteboard ? "已填入编辑框并复制到剪贴板" : "已填入当前股票示例"
+        )
     }
 
     private var appearanceView: some View {

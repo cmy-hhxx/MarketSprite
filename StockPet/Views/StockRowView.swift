@@ -12,10 +12,14 @@ struct StockRowView: View {
         symbol.market.colorRole(isRising: (quote?.changePercent ?? 0) >= 0)
     }
 
+    private var labelWidth: CGFloat { compact ? 148 : 176 }
+    private var chartWidth: CGFloat { compact ? 148 : 176 }
+    private var priceWidth: CGFloat { compact ? 82 : 96 }
+
     var body: some View {
         HStack(spacing: compact ? 7 : 10) {
             label
-                .layoutPriority(1)
+                .frame(width: labelWidth, alignment: .leading)
 
             Group {
                 if let quote, quote.points.count > 1 {
@@ -29,12 +33,12 @@ struct StockRowView: View {
                     placeholder
                 }
             }
-            .frame(minWidth: 120, maxWidth: compact ? 150 : 180)
+            .frame(width: chartWidth, alignment: .leading)
 
             Spacer(minLength: 0)
 
             price
-                .frame(width: compact ? 82 : 96, alignment: .trailing)
+                .frame(width: priceWidth, alignment: .trailing)
         }
         .padding(.horizontal, 3)
         .overlay(alignment: .bottom) {
@@ -49,12 +53,14 @@ struct StockRowView: View {
             HStack(spacing: 4) {
                 Text(symbol.name)
                     .lineLimit(1)
+                    .truncationMode(.tail)
                     .font(.system(size: compact ? 11 : 12, weight: .bold, design: .rounded))
                     .foregroundStyle(
                         quote == nil
                             ? Color.white.opacity(labelOpacity)
                             : changeRole.color.opacity(labelOpacity)
                     )
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                 if quote?.isStale == true {
                     Image(systemName: "clock.badge.exclamationmark")
@@ -76,7 +82,9 @@ struct StockRowView: View {
                     ? Color.white.opacity(labelOpacity)
                     : changeRole.color.opacity(labelOpacity)
             )
+            .lineLimit(1)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .help(quote?.statusMessage ?? "\(symbol.market.displayName) · \(symbol.code)")
     }
 
@@ -175,7 +183,7 @@ struct IntradayChartView: View {
             context.stroke(
                 line,
                 with: .color(colorRole.color.opacity(opacity)),
-                style: StrokeStyle(lineWidth: 1.65, lineCap: .round, lineJoin: .round)
+                style: StrokeStyle(lineWidth: 2.0, lineCap: .round, lineJoin: .round)
             )
 
             if let last = points.last {

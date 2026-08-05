@@ -36,7 +36,7 @@ struct StockPetApp: App {
         Settings {
             SettingsView()
                 .environmentObject(store)
-                .frame(width: 640, height: 720)
+                .frame(width: 660, height: 760)
         }
     }
 }

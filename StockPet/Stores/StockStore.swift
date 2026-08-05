@@ -40,10 +40,7 @@ final class StockStore: ObservableObject {
         }
     }
     @Published var priceAlertTargets: [String: PriceAlertTargets] {
-        didSet {
-            thresholdGates.removeAll()
-            persist()
-        }
+        didSet { persist() }
     }
     @Published var refreshInterval: Int {
         didSet {
@@ -72,8 +69,7 @@ final class StockStore: ObservableObject {
     @Published var alertsEnabled: Bool {
         didSet {
             if !alertsEnabled {
-                activeAlert = nil
-                currentAlertSound?.stop()
+                clearActiveAlert()
             }
             thresholdGates.removeAll()
             persist()
@@ -108,6 +104,9 @@ final class StockStore: ObservableObject {
     private var currentAlertSound: NSSound?
     private var thresholdGates: [String: ThresholdGate] = [:]
     private var hasStarted = false
+    private var suppressPersist = true
+    private var refreshGeneration = 0
+    private var symbolsLoadFailed = false
 
     init(
         service: any QuoteProviding = MarketQuoteService(),
@@ -116,9 +115,15 @@ final class StockStore: ObservableObject {
         self.service = service
         self.defaults = defaults
 
-        if let data = defaults.data(forKey: Keys.symbols),
-           let decoded = try? JSONDecoder().decode([StockSymbol].self, from: data) {
-            symbols = decoded
+        var loadError: String?
+        if let data = defaults.data(forKey: Keys.symbols) {
+            if let decoded = try? JSONDecoder().decode([StockSymbol].self, from: data) {
+                symbols = decoded
+            } else {
+                symbols = []
+                symbolsLoadFailed = true
+                loadError = tr("本地股票列表损坏，请重新导入或搜索添加")
+            }
         } else {
             symbols = StockSymbol.initialSymbols
         }
@@ -152,6 +157,9 @@ final class StockStore: ObservableObject {
         shortcutKey = ShortcutKeyOption(
             rawValue: defaults.string(forKey: Keys.shortcutKey) ?? ""
         ) ?? .s
+
+        suppressPersist = false
+        sourceError = loadError
     }
 
     func start() {
@@ -176,6 +184,10 @@ final class StockStore: ObservableObject {
             return tr("这只股票已经在桌面上了")
         }
         symbols.append(symbol)
+        if symbolsLoadFailed {
+            symbolsLoadFailed = false
+            sourceError = nil
+        }
         Task { await refresh(symbol) }
         return nil
     }
@@ -186,17 +198,75 @@ final class StockStore: ObservableObject {
         loadingIDs.remove(symbol.id)
         thresholdGates.removeValue(forKey: symbol.id)
         priceAlertTargets.removeValue(forKey: symbol.id)
+        if activeAlert?.symbol.id == symbol.id {
+            clearActiveAlert()
+        }
     }
 
     func moveSymbols(from offsets: IndexSet, to destination: Int) {
         symbols.move(fromOffsets: offsets, toOffset: destination)
     }
 
+    /// Pretty-printed JSON of the current watchlist, suitable as an import example.
+    func symbolsJSONExample() -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        guard let data = try? encoder.encode(symbols),
+              let string = String(data: data, encoding: .utf8) else {
+            return "[]"
+        }
+        return string
+    }
+
+    /// Replace the watchlist with symbols decoded from a JSON array.
+    @discardableResult
+    func importSymbols(fromJSON json: String) -> ImportSymbolsResult {
+        let trimmed = json.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return .failure(tr("请先粘贴 JSON"))
+        }
+        guard let data = trimmed.data(using: .utf8) else {
+            return .failure(tr("JSON 编码无效"))
+        }
+
+        do {
+            let decoded = try JSONDecoder().decode([StockSymbol].self, from: data)
+            guard !decoded.isEmpty else {
+                return .failure(tr("JSON 中没有股票"))
+            }
+
+            var seen = Set<String>()
+            let unique = decoded.filter { seen.insert($0.id).inserted }
+            let keptIDs = Set(unique.map(\.id))
+            symbols = unique
+            quotes = quotes.filter { keptIDs.contains($0.key) }
+            loadingIDs = loadingIDs.intersection(keptIDs)
+            thresholdGates.removeAll()
+            priceAlertTargets = priceAlertTargets.filter { keptIDs.contains($0.key) }
+            if let alertID = activeAlert?.symbol.id, !keptIDs.contains(alertID) {
+                clearActiveAlert()
+            }
+            symbolsLoadFailed = false
+            sourceError = nil
+            Task { await refreshAll() }
+            return .success(count: unique.count)
+        } catch {
+            return .failure(
+                String(format: tr("JSON 解析失败：%@"), error.localizedDescription)
+            )
+        }
+    }
+
     func refreshAll() async {
+        refreshGeneration += 1
+        let generation = refreshGeneration
         let currentSymbols = symbols
         guard !currentSymbols.isEmpty else {
+            guard generation == refreshGeneration else { return }
             lastRefresh = Date()
-            sourceError = nil
+            if !symbolsLoadFailed {
+                sourceError = nil
+            }
             return
         }
 
@@ -215,6 +285,10 @@ final class StockStore: ObservableObject {
             }
 
             for await outcome in group {
+                guard generation == refreshGeneration else {
+                    group.cancelAll()
+                    return
+                }
                 switch outcome {
                 case .success(let quote):
                     quotes[quote.id] = quote
@@ -232,19 +306,31 @@ final class StockStore: ObservableObject {
             }
         }
 
+        guard generation == refreshGeneration else { return }
         lastRefresh = Date()
-        sourceError = failures == currentSymbols.count
-            ? tr("行情连接暂不可用，已保留上次成功数据")
-            : nil
+        if failures == currentSymbols.count {
+            sourceError = tr("行情连接暂不可用，已保留上次成功数据")
+        } else if !symbolsLoadFailed {
+            sourceError = nil
+        }
     }
 
     func refresh(_ symbol: StockSymbol) async {
+        let generation = refreshGeneration
         loadingIDs.insert(symbol.id)
         do {
             let quote = try await service.fetchIntraday(for: symbol)
+            guard generation == refreshGeneration else {
+                loadingIDs.remove(symbol.id)
+                return
+            }
             quotes[symbol.id] = quote
             evaluateThreshold(for: quote)
         } catch {
+            guard generation == refreshGeneration else {
+                loadingIDs.remove(symbol.id)
+                return
+            }
             if var cached = quotes[symbol.id] {
                 cached.isStale = true
                 cached.statusMessage = error.localizedDescription
@@ -276,11 +362,13 @@ final class StockStore: ObservableObject {
         } else {
             priceAlertTargets.removeValue(forKey: symbol.id)
         }
+        thresholdGates.removeValue(forKey: symbol.id)
     }
 
     func setPriceTargetsEnabled(for symbol: StockSymbol, enabled: Bool) {
         guard enabled else {
             priceAlertTargets.removeValue(forKey: symbol.id)
+            thresholdGates.removeValue(forKey: symbol.id)
             return
         }
         guard let quote = quotes[symbol.id], quote.lastPrice > 0 else { return }
@@ -293,16 +381,21 @@ final class StockStore: ObservableObject {
 
     @discardableResult
     func generatePriceTargetsFromCurrentQuotes() -> Int {
-        var generated = 0
+        var updated = priceAlertTargets
+        var touched = Set<String>()
         for symbol in symbols {
             guard let quote = quotes[symbol.id], quote.lastPrice > 0 else { continue }
-            priceAlertTargets[symbol.id] = PriceAlertTargets(
+            updated[symbol.id] = PriceAlertTargets(
                 risingPrice: quote.lastPrice * (1 + risingThreshold / 100),
                 fallingPrice: quote.lastPrice * (1 - fallingThreshold / 100)
             )
-            generated += 1
+            touched.insert(symbol.id)
         }
-        return generated
+        priceAlertTargets = updated
+        for id in touched {
+            thresholdGates.removeValue(forKey: id)
+        }
+        return touched.count
     }
 
     func testAlert(_ direction: ThresholdDirection) {
@@ -381,6 +474,13 @@ final class StockStore: ObservableObject {
         }
     }
 
+    private func clearActiveAlert() {
+        activeAlert = nil
+        dismissAlertTask?.cancel()
+        dismissAlertTask = nil
+        currentAlertSound?.stop()
+    }
+
     private func playAlertSound(for direction: ThresholdDirection) {
         let isEnabled = direction == .rising ? bullSoundEnabled : bearSoundEnabled
         guard isEnabled else { return }
@@ -412,6 +512,7 @@ final class StockStore: ObservableObject {
     }
 
     private func persist() {
+        guard !suppressPersist else { return }
         if let data = try? JSONEncoder().encode(symbols) {
             defaults.set(data, forKey: Keys.symbols)
         }
