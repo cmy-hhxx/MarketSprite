@@ -156,6 +156,7 @@ final class MarketSpriteTests: XCTestCase {
             legacyDomain: [
                 "stockPet.lineOpacity": 0.3,
                 "stockPet.refreshInterval": 30,
+                AppDataMigrator.legacyWindowFramePreferenceKey: "100 200 300 400 0 0 1920 1080 ",
                 "unrelated.preference": true,
             ],
             to: defaults
@@ -163,6 +164,10 @@ final class MarketSpriteTests: XCTestCase {
 
         XCTAssertEqual(defaults.double(forKey: "stockPet.lineOpacity"), 0.75)
         XCTAssertEqual(defaults.integer(forKey: "stockPet.refreshInterval"), 30)
+        XCTAssertEqual(
+            defaults.string(forKey: AppDataMigrator.legacyWindowFramePreferenceKey),
+            "100 200 300 400 0 0 1920 1080 "
+        )
         XCTAssertNil(defaults.object(forKey: "unrelated.preference"))
         XCTAssertTrue(defaults.bool(forKey: AppDataMigrator.preferencesMigrationMarkerKey))
 

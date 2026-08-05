@@ -3,12 +3,11 @@ import GRDB
 
 /// Opens and migrates the local quotes SQLite database.
 public enum QuoteDatabase {
-    public static let defaultAppFolderName = "MarketSprite"
     public static let defaultFileName = "quotes.sqlite"
 
     /// Opens `~/Library/Application Support/<appFolderName>/quotes.sqlite`.
     public static func openInApplicationSupport(
-        appFolderName: String = defaultAppFolderName,
+        appFolderName: String,
         fileName: String = defaultFileName
     ) throws -> MinuteBarRepository {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first

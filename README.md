@@ -51,6 +51,7 @@ MarketSprite 是一个原生 macOS 桌面行情工具。它把自选股、当日
 ```bash
 git clone https://github.com/cmy-hhxx/MarketSprite.git
 cd MarketSprite
+mise trust
 mise install
 mise exec -- xcodegen generate
 open MarketSprite.xcodeproj

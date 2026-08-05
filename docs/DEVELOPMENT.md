@@ -9,6 +9,7 @@
 项目使用 `mise.toml` 固定 XcodeGen 版本。首次进入仓库后运行：
 
 ```bash
+mise trust
 mise install
 mise exec -- xcodegen generate
 open MarketSprite.xcodeproj
@@ -64,20 +65,20 @@ xcodebuild build \
 rg -n 'MingyHUD|StockPet_my' \
   -g '!build/**' \
   -g '!Packages/QuoteDatabase/.build/**'
-git diff -- StockPet/Resources
+git diff --quiet -- StockPet/Resources
 ```
 
-第二条命令在当前品牌迁移期间必须没有输出。
+第二条命令在当前品牌迁移期间必须以状态码 `0` 退出。
 
 ## 兼容协议
 
 v0.4.0 将 bundle identifier 从 `com.mingyhud.app` 改为 `io.github.cmy-hhxx.marketsprite`。
 
-- 首次正常启动时，只复制旧偏好域中以 `stockPet.` 开头且新域尚不存在的值。
+- 首次正常启动时，只复制旧偏好域中以 `stockPet.` 开头的值和窗口位置；新域已有值不会被覆盖。
 - 旧偏好键名暂时保留，不能在没有新迁移逻辑时直接更名。
 - `~/Library/Application Support/MingyHUD` 会复制到 `MarketSprite`。
 - 已存在的 MarketSprite 文件不会被旧数据覆盖。
-- `StockPetFloatingFrame` 继续作为窗口位置保存键，确保升级后位置不跳变。
+- `NSWindow Frame StockPetFloatingFrame` 会迁移到新偏好域，并继续作为窗口位置保存键。
 - 测试进程不会执行真实用户目录迁移。
 
 ## 第三方内容

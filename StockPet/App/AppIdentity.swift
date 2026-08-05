@@ -2,7 +2,6 @@ import Foundation
 
 enum AppIdentity {
     static let displayName = "MarketSprite"
-    static let bundleIdentifier = "io.github.cmy-hhxx.marketsprite"
     static let applicationSupportFolderName = "MarketSprite"
 
     static let legacyBundleIdentifier = "com.mingyhud.app"
@@ -11,6 +10,7 @@ enum AppIdentity {
 
 enum AppDataMigrator {
     static let preferencesMigrationMarkerKey = "marketSprite.migratedPreferencesFromMingyHUD"
+    static let legacyWindowFramePreferenceKey = "NSWindow Frame StockPetFloatingFrame"
     private static let legacyPreferencePrefix = "stockPet."
 
     static func migrateLegacyUserData(
@@ -42,12 +42,16 @@ enum AppDataMigrator {
 
         if let legacyDomain {
             for (key, value) in legacyDomain
-            where key.hasPrefix(legacyPreferencePrefix) && defaults.object(forKey: key) == nil {
+            where shouldMigratePreference(key) && defaults.object(forKey: key) == nil {
                 defaults.set(value, forKey: key)
             }
         }
 
         defaults.set(true, forKey: preferencesMigrationMarkerKey)
+    }
+
+    private static func shouldMigratePreference(_ key: String) -> Bool {
+        key.hasPrefix(legacyPreferencePrefix) || key == legacyWindowFramePreferenceKey
     }
 
     static func migrateApplicationSupport(

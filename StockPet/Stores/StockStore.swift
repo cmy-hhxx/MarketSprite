@@ -123,7 +123,9 @@ final class StockStore: ObservableObject {
             self.minuteBarRepository = minuteBarRepository
         } else {
             do {
-                let repository = try QuoteDatabase.openInApplicationSupport()
+                let repository = try QuoteDatabase.openInApplicationSupport(
+                    appFolderName: AppIdentity.applicationSupportFolderName
+                )
                 self.minuteBarRepository = repository
                 quoteDatabasePath = repository.databasePath
             } catch {
