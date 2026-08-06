@@ -15,30 +15,73 @@ mise exec -- xcodegen generate
 open MarketSprite.xcodeproj
 ```
 
-`project.yml` 是 Xcode 工程的唯一配置来源。修改 target、依赖或构建设置后重新运行 XcodeGen，不要直接维护 `project.pbxproj`。
+`project.yml` 是 target、依赖、版本和构建设置的唯一来源。`MarketSprite.xcodeproj` 与 `Package.resolved` 都是本地生成物，不提交到 Git，也不要直接维护 `project.pbxproj`。
 
 ## 目录
 
 ```text
-StockPet/
-  App/          应用入口、窗口与品牌迁移
-  Models/       行情和提醒领域模型
-  Services/     搜索与分时行情客户端
-  Stores/       应用状态、刷新、提醒与持久化
-  Views/        SwiftUI 界面
-  Resources/    App Icon 与提醒音效
+MarketSprite/
+  App/         应用入口、依赖组装与生命周期
+  Monitor/     观察列表、刷新编排与桌面行情面板
+  MarketData/  市场模型、稳定标识、数据源适配与解析
+  Alerts/      提醒规则、评估、展示与声音
+  Settings/    应用偏好和设置界面
+  Database/    唯一的 SQLite / GRDB 数据访问实现
+  Platform/    AppKit 窗口与全局快捷键适配
+  Resources/   本地化、图标与声音
 MarketSpriteTests/
-Packages/QuoteDatabase/
+  Alerts/
+  Database/
+  MarketData/
+  Monitor/
+  Settings/
+  Support/
+Scripts/
 docs/
 ```
 
-产品、target 和 scheme 已统一为 `MarketSprite`。源码目录暂时保留为 `StockPet/`，用于避免在本轮品牌迁移中移动资源路径；它不是对外产品名。
+领域词汇以根目录 [CONTEXT.md](../CONTEXT.md) 为准，能力依赖与持久化所有权见 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-## 验证
+## 代码边界
 
-运行完整测试：
+- 只有 `Database/` 可以导入 GRDB；所有数据库操作必须通过 `MarketDatabase`。
+- 只有 `Settings/AppPreferences.swift` 可以访问 `UserDefaults`。
+- 只有 `MarketData/PublicMarketDataClient.swift` 可以发起行情网络请求。
+- `InstrumentID` 必须使用 `namespace:symbol`，并独立于腾讯、东方财富或未来数据源的标识。
+- `MonitorStore` 负责观察列表运行态、缓存新鲜度、刷新与提醒编排，不负责未来全市场 Dashboard。
+- 不增加兼容别名、迁移层、空协议、占位目录或仅转发调用的包装模块。
+- Pi Agent、TUI、策略和自动交易均不在当前实现范围；出现真实用例后再设计接口。
+
+新增能力前先判断它是否属于现有能力。只有当新行为拥有独立生命周期和明确接口时，才新增顶层目录。
+
+## 持久化
+
+`MarketDatabase` 使用 `~/Library/Application Support/MarketSprite/marketsprite-v2.sqlite`，保存：
+
+- Instruments 与有序 Watchlist
+- 所有支持 Market 的 Quote Snapshots 与 Minute Bars
+- Alert Configuration 与逐标的 Price Alert Targets
+- 应用初始化元数据
+
+`AppPreferences` 使用当前 bundle 的 macOS 用户偏好域，只保存外观、刷新频率、声音、窗口行为和快捷键。
+
+v0.5.0 不读取旧 MingyHUD/StockPet 数据，也不迁移旧 `marketsprite.sqlite`；旧文件与新库使用不同文件名。
+
+## 测试
+
+测试目录镜像生产能力。测试应通过公开接口观察行为：
+
+- 行情适配器通过 `MarketDataClient` seam 测试。
+- 数据库测试使用真实的内存库、临时文件库或只读 SQLite，不模拟 GRDB 内部调用。
+- Monitor 测试验证观察列表、缓存、新鲜度和刷新结果，不读取内部表来旁证。
+- 纯规则如 `AlertEvaluator` 和 `Watchlist` 直接测试输入与输出。
+
+生成工程并运行完整测试：
 
 ```bash
+mise exec -- xcodegen generate
+
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 xcodebuild test \
   -project MarketSprite.xcodeproj \
   -scheme MarketSprite \
@@ -50,6 +93,7 @@ xcodebuild test \
 验证 Release 构建：
 
 ```bash
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 xcodebuild build \
   -project MarketSprite.xcodeproj \
   -scheme MarketSprite \
@@ -59,30 +103,18 @@ xcodebuild build \
   CODE_SIGNING_ALLOWED=NO
 ```
 
-提交前还应检查：
+## 架构校验
+
+提交前先运行：
 
 ```bash
-rg -n 'MingyHUD|StockPet_my' \
-  -g '!build/**' \
-  -g '!Packages/QuoteDatabase/.build/**'
-git diff --quiet -- StockPet/Resources
+Scripts/verify_architecture.sh
 ```
 
-第二条命令在当前品牌迁移期间必须以状态码 `0` 退出。
-
-## 兼容协议
-
-v0.4.0 将 bundle identifier 从 `com.mingyhud.app` 改为 `io.github.cmy-hhxx.marketsprite`。
-
-- 首次正常启动时，只复制旧偏好域中以 `stockPet.` 开头的值和窗口位置；新域已有值不会被覆盖。
-- 旧偏好键名暂时保留，不能在没有新迁移逻辑时直接更名。
-- `~/Library/Application Support/MingyHUD` 会复制到 `MarketSprite`。
-- 已存在的 MarketSprite 文件不会被旧数据覆盖。
-- `NSWindow Frame StockPetFloatingFrame` 会迁移到新偏好域，并继续作为窗口位置保存键。
-- 测试进程不会执行真实用户目录迁移。
+脚本会检查能力目录、旧命名、GRDB/UserDefaults/URLSession 的访问位置、版本号以及生成物忽略规则。它不能替代测试和代码审查，但可以阻止最容易反复出现的结构退化。
 
 ## 第三方内容
 
-- 行情数据库使用 [GRDB](https://github.com/groue/GRDB.swift)。
-- 牛熊提示音的来源记录在 `StockPet/Resources/Sounds/README.md`。
-- 上游 StockPet 的 MIT 版权声明必须保留在根目录 `LICENSE`。
+- SQLite 访问使用 [GRDB](https://github.com/groue/GRDB.swift)，版本由 `project.yml` 精确固定。
+- 牛熊提示音来源记录在 [MarketSprite/Resources/Sounds/README.md](../MarketSprite/Resources/Sounds/README.md)。
+- 上游 StockPet 的 MIT 版权声明必须保留在根目录 [LICENSE](../LICENSE) 中。

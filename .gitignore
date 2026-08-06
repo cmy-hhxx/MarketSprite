@@ -13,6 +13,10 @@ dist/
 tmp/
 *.xcresult
 
+# Generated from project.yml
+MarketSprite.xcodeproj/
+**/Package.resolved
+
 # Local previews and internal working notes
 sound-previews/
 coder_report.md

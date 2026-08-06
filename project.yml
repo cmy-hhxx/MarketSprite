@@ -9,19 +9,22 @@ settings:
     SWIFT_VERSION: "5.0"
     MACOSX_DEPLOYMENT_TARGET: "14.0"
     CURRENT_PROJECT_VERSION: 5
-    MARKETING_VERSION: 0.4.0
+    MARKETING_VERSION: 0.5.0
     CODE_SIGN_STYLE: Automatic
 packages:
-  QuoteDatabase:
-    path: Packages/QuoteDatabase
+  GRDB:
+    url: https://github.com/groue/GRDB.swift.git
+    exactVersion: 7.11.1
 targets:
   MarketSprite:
     type: application
     platform: macOS
     sources:
-      - path: StockPet
+      - path: MarketSprite
+        excludes:
+          - Resources/Sounds/README.md
     dependencies:
-      - package: QuoteDatabase
+      - package: GRDB
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.cmy-hhxx.marketsprite
