@@ -1,7 +1,15 @@
 import Foundation
+import os
 
 final class StubURLProtocol: URLProtocol {
-    static var handler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
+    typealias Handler = @Sendable (URLRequest) throws -> (HTTPURLResponse, Data)
+
+    private static let handlerStorage = OSAllocatedUnfairLock<Handler?>(initialState: nil)
+
+    static var handler: Handler? {
+        get { handlerStorage.withLock { $0 } }
+        set { handlerStorage.withLock { $0 = newValue } }
+    }
 
     override class func canInit(with request: URLRequest) -> Bool { true }
 

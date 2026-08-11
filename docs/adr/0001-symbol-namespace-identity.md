@@ -22,5 +22,5 @@
 
 - 相同 symbol 可以同时存在于搜索结果、Watchlist、提醒目标和数据库中。
 - JSON 导入导出必须使用 `namespace`，界面在可能出现歧义的位置显示交易所名称。
-- SQLite 使用全新的 `marketsprite-v2.sqlite` schema，不迁移缺少 Namespace 的旧 `marketsprite.sqlite`。
+- SQLite 当前使用 `marketsprite-v3.sqlite` 的单一 schema，不迁移缺少 Namespace 的旧库或 v2 schema。
 - 新增代码域时必须同时定义 Market 映射、Provider 路由、显示名称和回归测试。

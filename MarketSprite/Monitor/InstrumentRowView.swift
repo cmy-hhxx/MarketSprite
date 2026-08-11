@@ -42,7 +42,7 @@ struct InstrumentRowView: View {
                         colorRole: changeRole,
                         opacity: lineOpacity,
                         showBSMarkers: instrument.market == .aShare
-                            && TradingCalendar.shouldShowAShareExtrema()
+                            && TradingCalendar.shouldShowAShareExtrema(for: quote)
                     )
                 } else {
                     placeholder
@@ -222,6 +222,8 @@ struct IntradayChartView: View {
 
             let strokeStyle = StrokeStyle(lineWidth: 1.55, lineCap: .round, lineJoin: .round)
             var segmentRole = colorRole
+            var risingPath = Path()
+            var fallingPath = Path()
             for index in 1...lastIndex {
                 let previous = closes[index - 1]
                 let current = closes[index]
@@ -232,21 +234,37 @@ struct IntradayChartView: View {
                     segmentRole = .green
                 }
 
-                var segment = Path()
                 let steps = subdivisions
                 for step in 0...steps {
                     let t = CGFloat(step) / CGFloat(steps)
                     let price = interpolatedClose(from: index - 1, to: index, t: t)
                     let point = coordinate(index: CGFloat(index - 1) + t, price: price)
-                    if step == 0 {
-                        segment.move(to: point)
+                    if segmentRole == .red {
+                        if step == 0 {
+                            risingPath.move(to: point)
+                        } else {
+                            risingPath.addLine(to: point)
+                        }
                     } else {
-                        segment.addLine(to: point)
+                        if step == 0 {
+                            fallingPath.move(to: point)
+                        } else {
+                            fallingPath.addLine(to: point)
+                        }
                     }
                 }
+            }
+            if !risingPath.isEmpty {
                 context.stroke(
-                    segment,
-                    with: .color(segmentRole.color.opacity(opacity)),
+                    risingPath,
+                    with: .color(MarketColorRole.red.color.opacity(opacity)),
+                    style: strokeStyle
+                )
+            }
+            if !fallingPath.isEmpty {
+                context.stroke(
+                    fallingPath,
+                    with: .color(MarketColorRole.green.color.opacity(opacity)),
                     style: strokeStyle
                 )
             }

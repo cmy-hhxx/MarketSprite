@@ -21,14 +21,37 @@ final class TradingCalendarTests: XCTestCase {
         )
     }
 
-    func testAShareExtremaAppearOnlyBetweenTheLatestCloseAndNextOpen() throws {
+    func testAShareExtremaFollowTheQuoteSessionInsteadOfAHolidayTable() throws {
         let formatter = ISO8601DateFormatter()
-        let afterClose = try XCTUnwrap(formatter.date(from: "2026-07-30T07:30:00Z"))
-        let beforeNextOpen = try XCTUnwrap(formatter.date(from: "2026-07-31T01:15:00Z"))
-        let afterNextOpen = try XCTUnwrap(formatter.date(from: "2026-07-31T01:31:00Z"))
+        let sameSession = quote(
+            marketTime: try XCTUnwrap(formatter.date(from: "2026-07-30T06:30:00Z"))
+        )
+        let beforeClose = try XCTUnwrap(formatter.date(from: "2026-07-30T06:59:00Z"))
+        let afterClose = try XCTUnwrap(formatter.date(from: "2026-07-30T07:01:00Z"))
+        let nextSession = try XCTUnwrap(formatter.date(from: "2026-07-31T01:31:00Z"))
+        let weekend = try XCTUnwrap(formatter.date(from: "2026-08-01T02:00:00Z"))
 
-        XCTAssertTrue(TradingCalendar.shouldShowAShareExtrema(now: afterClose))
-        XCTAssertTrue(TradingCalendar.shouldShowAShareExtrema(now: beforeNextOpen))
-        XCTAssertFalse(TradingCalendar.shouldShowAShareExtrema(now: afterNextOpen))
+        XCTAssertFalse(TradingCalendar.shouldShowAShareExtrema(for: sameSession, now: beforeClose))
+        XCTAssertTrue(TradingCalendar.shouldShowAShareExtrema(for: sameSession, now: afterClose))
+        XCTAssertTrue(TradingCalendar.shouldShowAShareExtrema(for: sameSession, now: nextSession))
+        XCTAssertTrue(TradingCalendar.shouldShowAShareExtrema(for: sameSession, now: weekend))
+
+        let futureQuote = quote(
+            marketTime: try XCTUnwrap(formatter.date(from: "2026-08-03T02:00:00Z"))
+        )
+        XCTAssertFalse(TradingCalendar.shouldShowAShareExtrema(for: futureQuote, now: weekend))
+    }
+
+    private func quote(marketTime: Date) -> QuoteSnapshot {
+        QuoteSnapshot(
+            instrumentID: Instrument.initialWatchlist[0].id,
+            minuteBars: [],
+            dayOpen: 1,
+            previousClose: 1,
+            lastPrice: 1,
+            marketTime: marketTime,
+            receivedAt: marketTime,
+            source: .tencent
+        )
     }
 }

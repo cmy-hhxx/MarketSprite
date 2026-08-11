@@ -1,8 +1,13 @@
 import Foundation
 import GRDB
+import OSLog
 
 actor MarketDatabase {
-    static let defaultFileName = "marketsprite-v2.sqlite"
+    static let defaultFileName = "marketsprite-v3.sqlite"
+    private static let signposter = OSSignposter(
+        subsystem: "io.github.cmy-hhxx.marketsprite",
+        category: "Database"
+    )
 
     private let databaseQueue: DatabaseQueue
     nonisolated let databasePath: String
@@ -10,12 +15,14 @@ actor MarketDatabase {
     private init(
         databaseQueue: DatabaseQueue,
         databasePath: String,
-        migrate: Bool = true
+        initialize: Bool = true
     ) throws {
         self.databaseQueue = databaseQueue
         self.databasePath = databasePath
-        if migrate {
-            try DatabaseSchema.migrate(databaseQueue)
+        if initialize {
+            try DatabaseSchema.initialize(databaseQueue)
+        } else {
+            try DatabaseSchema.validate(databaseQueue)
         }
     }
 
@@ -42,7 +49,7 @@ actor MarketDatabase {
                 configuration: readOnlyConfiguration
             ),
             databasePath: path,
-            migrate: false
+            initialize: false
         )
     }
 
@@ -136,6 +143,12 @@ actor MarketDatabase {
 
     @discardableResult
     func saveQuote(_ snapshot: QuoteSnapshot, for instrument: Instrument) throws -> Bool {
+        let interval = Self.signposter.beginInterval(
+            "SynchronizeQuoteSnapshot",
+            id: Self.signposter.makeSignpostID()
+        )
+        defer { Self.signposter.endInterval("SynchronizeQuoteSnapshot", interval) }
+
         guard snapshot.instrumentID == instrument.id else {
             throw MarketDatabaseError.quoteInstrumentMismatch(
                 expected: instrument.id,
@@ -146,6 +159,7 @@ actor MarketDatabase {
             for: snapshot.marketTime,
             market: instrument.market
         )
+        try Self.validate(snapshot, for: instrument, sessionDate: sessionDate)
 
         return try databaseQueue.write { database in
             let isObserved = try Bool.fetchOne(
@@ -156,6 +170,64 @@ actor MarketDatabase {
             guard isObserved else { return false }
 
             try Self.upsert(instrument, in: database)
+            let storedRows = try Row.fetchAll(
+                database,
+                sql: """
+                SELECT minute_at, open, close, high, low
+                FROM minute_bars
+                WHERE instrument_id = ? AND session_date = ?
+                """,
+                arguments: [snapshot.instrumentID.rawValue, sessionDate]
+            )
+            let storedBars = Dictionary(
+                uniqueKeysWithValues: storedRows.map { row in
+                    let bar = MinuteBar(
+                        time: row["minute_at"],
+                        open: row["open"],
+                        close: row["close"],
+                        high: row["high"],
+                        low: row["low"]
+                    )
+                    return (bar.time, bar)
+                }
+            )
+            let incomingTimes = Set(snapshot.minuteBars.map(\.time))
+            for storedTime in storedBars.keys where !incomingTimes.contains(storedTime) {
+                try database.execute(
+                    sql: """
+                    DELETE FROM minute_bars
+                    WHERE instrument_id = ? AND minute_at = ?
+                    """,
+                    arguments: [snapshot.instrumentID.rawValue, storedTime]
+                )
+            }
+
+            for bar in snapshot.minuteBars where storedBars[bar.time] != bar {
+                try database.execute(
+                    sql: """
+                    INSERT INTO minute_bars (
+                        instrument_id, session_date, minute_at,
+                        open, close, high, low
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(instrument_id, minute_at) DO UPDATE SET
+                        session_date = excluded.session_date,
+                        open = excluded.open,
+                        close = excluded.close,
+                        high = excluded.high,
+                        low = excluded.low
+                    """,
+                    arguments: [
+                        snapshot.instrumentID.rawValue,
+                        sessionDate,
+                        bar.time,
+                        bar.open,
+                        bar.close,
+                        bar.high,
+                        bar.low,
+                    ]
+                )
+            }
+
             try database.execute(
                 sql: """
                 INSERT INTO quote_sessions (
@@ -181,69 +253,6 @@ actor MarketDatabase {
                     snapshot.source.rawValue,
                 ]
             )
-
-            let storedRange = try Row.fetchOne(
-                database,
-                sql: """
-                SELECT MIN(minute_at) AS first_minute,
-                       MAX(minute_at) AS last_minute
-                FROM minute_bars
-                WHERE instrument_id = ? AND session_date = ?
-                """,
-                arguments: [snapshot.instrumentID.rawValue, sessionDate]
-            )
-            let storedFirst: Date? = storedRange?["first_minute"]
-            let storedLast: Date? = storedRange?["last_minute"]
-            let incomingFirst = snapshot.minuteBars.first?.time
-            let incomingLast = snapshot.minuteBars.last?.time
-            let canAppend: Bool
-            if let storedFirst, let storedLast, let incomingFirst, let incomingLast {
-                canAppend = storedFirst == incomingFirst && incomingLast >= storedLast
-            } else {
-                canAppend = false
-            }
-
-            let barsToPersist: ArraySlice<MinuteBar>
-            if canAppend, let storedLast {
-                barsToPersist = snapshot.minuteBars[...].drop(while: {
-                    $0.time < storedLast
-                })
-            } else {
-                try database.execute(
-                    sql: """
-                    DELETE FROM minute_bars
-                    WHERE instrument_id = ? AND session_date = ?
-                    """,
-                    arguments: [snapshot.instrumentID.rawValue, sessionDate]
-                )
-                barsToPersist = snapshot.minuteBars[...]
-            }
-
-            for bar in barsToPersist {
-                try database.execute(
-                    sql: """
-                    INSERT INTO minute_bars (
-                        instrument_id, session_date, minute_at,
-                        open, close, high, low
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(instrument_id, minute_at) DO UPDATE SET
-                        session_date = excluded.session_date,
-                        open = excluded.open,
-                        close = excluded.close,
-                        high = excluded.high,
-                        low = excluded.low
-                    """,
-                    arguments: [
-                        snapshot.instrumentID.rawValue,
-                        sessionDate,
-                        bar.time,
-                        bar.open,
-                        bar.close,
-                        bar.high,
-                        bar.low,
-                    ]
-                )
-            }
             return true
         }
     }
@@ -326,8 +335,10 @@ actor MarketDatabase {
         try databaseQueue.close()
     }
 
-    func loadAlertConfiguration() throws -> AlertConfiguration {
-        try databaseQueue.read { database in
+    func loadAlertSettings(for instruments: [Instrument]) throws -> AlertSettingsSnapshot {
+        let includedIDs = Set(instruments.map(\.id))
+        return try databaseQueue.read { database in
+            let configuration: AlertConfiguration
             guard let row = try Row.fetchOne(
                 database,
                 sql: """
@@ -335,22 +346,37 @@ actor MarketDatabase {
                 FROM alert_configuration
                 WHERE id = 1
                 """
-            ) else { return .default }
-
+            ) else {
+                configuration = .default
+                return try AlertSettingsSnapshot(
+                    configuration: configuration,
+                    priceTargets: Self.fetchPriceAlertTargets(
+                        from: database,
+                        includedIDs: includedIDs
+                    )
+                )
+            }
             let basisValue: String = row["basis"]
             guard let basis = AlertBasis(rawValue: basisValue) else {
                 throw MarketDatabaseError.invalidAlertBasis(basisValue)
             }
-            return AlertConfiguration(
+            configuration = AlertConfiguration(
                 isEnabled: row["is_enabled"],
                 basis: basis,
                 risingThreshold: row["rising_threshold"],
                 fallingThreshold: row["falling_threshold"]
             )
+            return try AlertSettingsSnapshot(
+                configuration: configuration,
+                priceTargets: Self.fetchPriceAlertTargets(
+                    from: database,
+                    includedIDs: includedIDs
+                )
+            )
         }
     }
 
-    func saveAlertConfiguration(_ configuration: AlertConfiguration) throws {
+    func saveAlertSettings(_ snapshot: AlertSettingsSnapshot) throws {
         try databaseQueue.write { database in
             try database.execute(
                 sql: """
@@ -364,44 +390,14 @@ actor MarketDatabase {
                     falling_threshold = excluded.falling_threshold
                 """,
                 arguments: [
-                    configuration.isEnabled,
-                    configuration.basis.rawValue,
-                    configuration.risingThreshold,
-                    configuration.fallingThreshold,
+                    snapshot.configuration.isEnabled,
+                    snapshot.configuration.basis.rawValue,
+                    snapshot.configuration.risingThreshold,
+                    snapshot.configuration.fallingThreshold,
                 ]
             )
-        }
-    }
-
-    func loadPriceAlertTargets(
-        for instruments: [Instrument]
-    ) throws -> [InstrumentID: PriceAlertTargets] {
-        let includedIDs = Set(instruments.map(\.id))
-        return try databaseQueue.read { database in
-            let rows = try Row.fetchAll(
-                database,
-                sql: """
-                SELECT instrument_id, rising_price, falling_price
-                FROM price_alert_targets
-                """
-            )
-            return rows.reduce(into: [:]) { targets, row in
-                let id = InstrumentID(rawValue: row["instrument_id"])
-                guard includedIDs.contains(id) else { return }
-                targets[id] = PriceAlertTargets(
-                    risingPrice: row["rising_price"],
-                    fallingPrice: row["falling_price"]
-                )
-            }
-        }
-    }
-
-    func replacePriceAlertTargets(
-        _ targets: [InstrumentID: PriceAlertTargets]
-    ) throws {
-        try databaseQueue.write { database in
             try database.execute(sql: "DELETE FROM price_alert_targets")
-            for (instrumentID, target) in targets where target.isEnabled {
+            for (instrumentID, target) in snapshot.priceTargets where target.isEnabled {
                 try database.execute(
                     sql: """
                     INSERT INTO price_alert_targets (
@@ -437,6 +433,64 @@ actor MarketDatabase {
         )
     }
 
+    private static func validate(
+        _ snapshot: QuoteSnapshot,
+        for instrument: Instrument,
+        sessionDate: String
+    ) throws {
+        let quoteValues = [snapshot.dayOpen, snapshot.previousClose, snapshot.lastPrice]
+        guard quoteValues.allSatisfy({ $0.isFinite && $0 > 0 }) else {
+            throw MarketDatabaseError.invalidQuote(tr("开盘价、昨收价和最新价必须为正数"))
+        }
+        guard snapshot.marketTime.timeIntervalSinceReferenceDate.isFinite,
+              snapshot.receivedAt.timeIntervalSinceReferenceDate.isFinite
+        else {
+            throw MarketDatabaseError.invalidQuote(tr("行情时间无效"))
+        }
+
+        var previousTime: Date?
+        for bar in snapshot.minuteBars {
+            if let previousTime, bar.time <= previousTime {
+                throw MarketDatabaseError.invalidQuote(tr("分钟线时间必须严格递增且不能重复"))
+            }
+            let values = [bar.open, bar.close, bar.high, bar.low]
+            guard values.allSatisfy({ $0.isFinite && $0 > 0 }),
+                  bar.high >= max(bar.open, bar.close, bar.low),
+                  bar.low <= min(bar.open, bar.close, bar.high)
+            else {
+                throw MarketDatabaseError.invalidQuote(tr("分钟线 OHLC 数据无效"))
+            }
+            guard TradingCalendar.sessionDate(for: bar.time, market: instrument.market)
+                    == sessionDate
+            else {
+                throw MarketDatabaseError.invalidQuote(tr("分钟线不属于行情交易日"))
+            }
+            previousTime = bar.time
+        }
+    }
+
+    private static func fetchPriceAlertTargets(
+        from database: Database,
+        includedIDs: Set<InstrumentID>
+    ) throws -> [InstrumentID: PriceAlertTargets] {
+        let rows = try Row.fetchAll(
+            database,
+            sql: """
+            SELECT instrument_id, rising_price, falling_price
+            FROM price_alert_targets
+            """
+        )
+        return try rows.reduce(into: [:]) { targets, row in
+            let storedID: String = row["instrument_id"]
+            let id = try InstrumentID(validatingRawValue: storedID)
+            guard includedIDs.contains(id) else { return }
+            targets[id] = PriceAlertTargets(
+                risingPrice: row["rising_price"],
+                fallingPrice: row["falling_price"]
+            )
+        }
+    }
+
     private static func fetchWatchlist(from database: Database) throws -> [Instrument] {
         let rows = try Row.fetchAll(
             database,
@@ -454,8 +508,8 @@ actor MarketDatabase {
             guard let namespace = SymbolNamespace(rawValue: namespaceValue) else {
                 throw MarketDatabaseError.invalidNamespace(namespaceValue)
             }
-            let instrument = Instrument(
-                symbol: row["symbol"],
+            let instrument = try Instrument(
+                validatingSymbol: row["symbol"],
                 name: row["name"],
                 namespace: namespace
             )

@@ -6,7 +6,7 @@
 - Xcode 16+
 - mise
 
-项目使用 `mise.toml` 固定 XcodeGen 版本。首次进入仓库后运行：
+项目使用 `mise.toml` 固定 XcodeGen、yq 和 ripgrep 版本。首次进入仓库后运行：
 
 ```bash
 mise trust
@@ -56,7 +56,7 @@ docs/
 
 ## 持久化
 
-`MarketDatabase` 使用 `~/Library/Application Support/MarketSprite/marketsprite-v2.sqlite`，保存：
+`MarketDatabase` 使用 `~/Library/Application Support/MarketSprite/marketsprite-v3.sqlite`，保存：
 
 - Instruments 与有序 Watchlist
 - 所有支持 Market 的 Quote Snapshots 与 Minute Bars
@@ -65,7 +65,7 @@ docs/
 
 `AppPreferences` 使用当前 bundle 的 macOS 用户偏好域，只保存外观、刷新频率、声音、窗口行为和快捷键。
 
-v0.5.0 不读取旧 MingyHUD/StockPet 数据，也不迁移旧 `marketsprite.sqlite`；旧文件与新库使用不同文件名。
+v0.6.0 只接受当前完整 schema，不注册 migration。它不读取、复制、删除或迁移 `marketsprite-v2.sqlite`；旧文件与新库使用不同文件名。
 
 ## 测试
 
@@ -74,6 +74,7 @@ v0.5.0 不读取旧 MingyHUD/StockPet 数据，也不迁移旧 `marketsprite.sql
 - 行情适配器通过 `MarketDataClient` seam 测试。
 - 数据库测试使用真实的内存库、临时文件库或只读 SQLite，不模拟 GRDB 内部调用。
 - Monitor 测试验证观察列表、缓存、新鲜度和刷新结果，不读取内部表来旁证。
+- 刷新测试必须验证 single-flight 和全局最多 6 个并发请求；数据库测试必须验证完整快照修正与删除。
 - 纯规则如 `AlertEvaluator` 和 `Watchlist` 直接测试输入与输出。
 
 生成工程并运行完整测试：
@@ -90,6 +91,17 @@ xcodebuild test \
   CODE_SIGNING_ALLOWED=NO
 ```
 
+运行不设绝对耗时门槛的性能基线（10/100 标的刷新、240 根分钟线、一年缓存和图表渲染）：
+
+```bash
+xcodebuild test \
+  -project MarketSprite.xcodeproj \
+  -scheme MarketSpritePerformance \
+  -destination 'platform=macOS' \
+  -derivedDataPath build/MarketSpritePerformance \
+  CODE_SIGNING_ALLOWED=NO
+```
+
 验证 Release 构建：
 
 ```bash
@@ -100,6 +112,8 @@ xcodebuild build \
   -configuration Release \
   -destination 'generic/platform=macOS' \
   -derivedDataPath build/MarketSpriteRelease \
+  ONLY_ACTIVE_ARCH=NO \
+  ARCHS='arm64 x86_64' \
   CODE_SIGNING_ALLOWED=NO
 ```
 
@@ -111,7 +125,7 @@ xcodebuild build \
 Scripts/verify_architecture.sh
 ```
 
-脚本会检查能力目录、旧命名、GRDB/UserDefaults/URLSession 的访问位置、版本号以及生成物忽略规则。它不能替代测试和代码审查，但可以阻止最容易反复出现的结构退化。
+脚本会检查能力目录、旧命名、GRDB/UserDefaults/URLSession 的访问位置、Swift 6 设置、旧 migration 与数据库路径以及生成物忽略规则。它不能替代测试和代码审查，但可以阻止最容易反复出现的结构退化。
 
 ## 第三方内容
 

@@ -177,6 +177,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private let hotKeyController = GlobalHotKeyController()
     private var shortcutObserver: NSObjectProtocol?
+    private var isTerminationPending = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if let iconURL = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
@@ -201,11 +202,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        cleanupApplicationResources()
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard !isTerminationPending else { return .terminateLater }
+        guard let store else {
+            cleanupApplicationResources()
+            return .terminateNow
+        }
+
+        isTerminationPending = true
+        Task { @MainActor [weak self] in
+            await store.shutdown()
+            self?.cleanupApplicationResources()
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
+    }
+
+    private func cleanupApplicationResources() {
         hotKeyController.unregister()
         if let shortcutObserver {
             NotificationCenter.default.removeObserver(shortcutObserver)
+            self.shortcutObserver = nil
         }
-        store?.stop()
     }
 
     private func updateGlobalShortcut() {

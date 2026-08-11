@@ -3,6 +3,38 @@ import XCTest
 
 @MainActor
 final class MonitorStoreTests: XCTestCase {
+    func testStartReturnsAfterLocalRestoreWithoutWaitingForInitialRefresh() async throws {
+        let database = try MarketDatabase.inMemory()
+        let instrument = Instrument.initialWatchlist[2]
+        let cached = makeQuote(for: instrument, price: 210)
+        let refreshed = makeQuote(for: instrument, price: 215)
+        try await database.replaceWatchlist(with: [instrument])
+        try await database.saveQuote(cached, for: instrument)
+        let client = OneShotSuspendingMarketDataClient()
+        await client.suspendNextFetch(with: refreshed)
+        let store = MonitorStore(
+            client: client,
+            database: database,
+            preferences: makePreferences()
+        )
+        let startReturned = expectation(description: "start returned after local restore")
+        let startTask = Task { @MainActor in
+            try await store.start()
+            startReturned.fulfill()
+        }
+
+        await client.waitUntilFetchIsSuspended()
+        await fulfillment(of: [startReturned], timeout: 1)
+        let restoredQuote = store.monitoredInstrument(for: instrument.id)?.quote
+
+        await client.resumeSuspendedFetch()
+        try await startTask.value
+        await store.refreshAll()
+
+        XCTAssertEqual(restoredQuote, cached)
+        store.stop()
+    }
+
     func testCachedQuoteRemainsVisibleAndBecomesStaleWhenRefreshFails() async throws {
         let database = try MarketDatabase.inMemory()
         let instrument = Instrument.initialWatchlist[2]
@@ -83,7 +115,33 @@ final class MonitorStoreTests: XCTestCase {
         store.stop()
     }
 
-    func testSuccessfulRefreshUpdatesQuoteBarCountImmediately() async throws {
+    func testImportReportsTheInvalidInstrumentIndex() async throws {
+        let database = try MarketDatabase.inMemory()
+        try await database.replaceWatchlist(with: [])
+        let store = MonitorStore(
+            client: FailingMarketDataClient(),
+            database: database,
+            preferences: makePreferences()
+        )
+        try await store.start()
+        let json = #"""
+        [
+          {"symbol":"AAPL","name":"Apple","namespace":"us"},
+          {"symbol":"12345","name":"无效 A 股","namespace":"sse"}
+        ]
+        """#
+
+        let result = await store.importWatchlist(fromJSON: json)
+
+        guard case .failure(let message) = result else {
+            return XCTFail("Expected invalid import")
+        }
+        XCTAssertTrue(message.contains("2"))
+        XCTAssertTrue(store.instruments.isEmpty)
+        store.stop()
+    }
+
+    func testSuccessfulRefreshLeavesQuoteBarCountOffTheHotPath() async throws {
         let database = try MarketDatabase.inMemory()
         let instrument = Instrument.initialWatchlist[2]
         let quote = makeQuote(for: instrument, price: 210)
@@ -95,7 +153,10 @@ final class MonitorStoreTests: XCTestCase {
         )
 
         try await store.start()
+        await store.refreshAll()
 
+        XCTAssertEqual(store.quoteBarCount, 0)
+        await store.refreshQuoteBarCount()
         XCTAssertEqual(store.quoteBarCount, 2)
         store.stop()
     }
@@ -150,6 +211,7 @@ final class MonitorStoreTests: XCTestCase {
         )
 
         try await store.start()
+        await store.refreshAll()
 
         XCTAssertNotNil(store.storageError)
         XCTAssertEqual(
@@ -160,8 +222,9 @@ final class MonitorStoreTests: XCTestCase {
             store.monitoredInstrument(for: accepted.id)?.quote?.lastPrice,
             120
         )
-        XCTAssertEqual(store.quoteBarCount, 2)
+        XCTAssertEqual(store.quoteBarCount, 0)
         await store.refreshQuoteBarCount()
+        XCTAssertEqual(store.quoteBarCount, 2)
         XCTAssertNotNil(store.storageError)
         store.stop()
         try await database.close()
@@ -189,6 +252,7 @@ final class MonitorStoreTests: XCTestCase {
         )
 
         try await store.start()
+        await store.refreshAll()
 
         XCTAssertEqual(store.monitoredInstrument(for: instrument.id)?.quote, cached)
         XCTAssertEqual(store.monitoredInstrument(for: instrument.id)?.status, .stale)
@@ -202,18 +266,20 @@ final class MonitorStoreTests: XCTestCase {
         let firstQuote = makeQuote(for: first, price: 110)
         let secondQuote = makeQuote(for: second, price: 110)
         try await database.replaceWatchlist(with: [first, second])
-        try await database.saveAlertConfiguration(
-            AlertConfiguration(
-                isEnabled: true,
-                basis: .targetPrice,
-                risingThreshold: 3,
-                fallingThreshold: 3
+        try await database.saveAlertSettings(
+            AlertSettingsSnapshot(
+                configuration: AlertConfiguration(
+                    isEnabled: true,
+                    basis: .targetPrice,
+                    risingThreshold: 3,
+                    fallingThreshold: 3
+                ),
+                priceTargets: [
+                    first.id: PriceAlertTargets(risingPrice: 105, fallingPrice: 0),
+                    second.id: PriceAlertTargets(risingPrice: 105, fallingPrice: 0),
+                ]
             )
         )
-        try await database.replacePriceAlertTargets([
-            first.id: PriceAlertTargets(risingPrice: 105, fallingPrice: 0),
-            second.id: PriceAlertTargets(risingPrice: 105, fallingPrice: 0),
-        ])
         let store = MonitorStore(
             client: DelayedPerInstrumentMarketDataClient(
                 quotes: [first.id: firstQuote, second.id: secondQuote],
@@ -223,6 +289,7 @@ final class MonitorStoreTests: XCTestCase {
             preferences: makePreferences()
         )
         try await store.start()
+        await store.refreshAll()
         XCTAssertEqual(store.activeAlert?.instrument.id, second.id)
 
         store.updatePriceTargets(
@@ -285,17 +352,19 @@ final class MonitorStoreTests: XCTestCase {
             namespace: .unitedStates
         )
         try await database.replaceWatchlist(with: [instrument])
-        try await database.saveAlertConfiguration(
-            AlertConfiguration(
-                isEnabled: true,
-                basis: .targetPrice,
-                risingThreshold: 3,
-                fallingThreshold: 3
+        try await database.saveAlertSettings(
+            AlertSettingsSnapshot(
+                configuration: AlertConfiguration(
+                    isEnabled: true,
+                    basis: .targetPrice,
+                    risingThreshold: 3,
+                    fallingThreshold: 3
+                ),
+                priceTargets: [
+                    instrument.id: PriceAlertTargets(risingPrice: 100, fallingPrice: 0),
+                ]
             )
         )
-        try await database.replacePriceAlertTargets([
-            instrument.id: PriceAlertTargets(risingPrice: 100, fallingPrice: 0),
-        ])
         let client = OneShotSuspendingMarketDataClient()
         let store = MonitorStore(
             client: client,
@@ -303,6 +372,7 @@ final class MonitorStoreTests: XCTestCase {
             preferences: makePreferences()
         )
         try await store.start()
+        await store.refreshAll()
         await client.suspendNextFetch(
             with: makeQuote(for: instrument, price: 110)
         )
@@ -334,17 +404,19 @@ final class MonitorStoreTests: XCTestCase {
             namespace: .unitedStates
         )
         try await database.replaceWatchlist(with: [discarded])
-        try await database.saveAlertConfiguration(
-            AlertConfiguration(
-                isEnabled: true,
-                basis: .targetPrice,
-                risingThreshold: 3,
-                fallingThreshold: 3
+        try await database.saveAlertSettings(
+            AlertSettingsSnapshot(
+                configuration: AlertConfiguration(
+                    isEnabled: true,
+                    basis: .targetPrice,
+                    risingThreshold: 3,
+                    fallingThreshold: 3
+                ),
+                priceTargets: [
+                    discarded.id: PriceAlertTargets(risingPrice: 100, fallingPrice: 0),
+                ]
             )
         )
-        try await database.replacePriceAlertTargets([
-            discarded.id: PriceAlertTargets(risingPrice: 100, fallingPrice: 0),
-        ])
         let client = OneShotSuspendingMarketDataClient()
         let store = MonitorStore(
             client: client,
@@ -352,6 +424,7 @@ final class MonitorStoreTests: XCTestCase {
             preferences: makePreferences()
         )
         try await store.start()
+        await store.refreshAll()
         await client.suspendNextFetch(
             with: makeQuote(for: discarded, price: 110)
         )
@@ -373,6 +446,103 @@ final class MonitorStoreTests: XCTestCase {
         XCTAssertNil(store.activeAlert)
         XCTAssertEqual(quoteBarCount, 0)
         store.stop()
+    }
+
+    func testConcurrentRefreshesShareOneBatchAndRespectConcurrencyLimit() async throws {
+        let database = try MarketDatabase.inMemory()
+        let instruments = (0..<12).map { index in
+            Instrument(
+                symbol: "LIMIT\(index)",
+                name: "并发上限 \(index)",
+                namespace: .unitedStates
+            )
+        }
+        try await database.replaceWatchlist(with: instruments)
+        let client = CountingMarketDataClient(delay: .milliseconds(25))
+        let store = MonitorStore(
+            client: client,
+            database: database,
+            preferences: makePreferences(),
+            maximumConcurrentRefreshes: 6
+        )
+        try await store.start()
+        await store.refreshAll()
+        await client.resetMetrics()
+
+        let first = Task { @MainActor in await store.refreshAll() }
+        let second = Task { @MainActor in await store.refreshAll() }
+        await first.value
+        await second.value
+
+        let metrics = await client.metrics()
+        XCTAssertEqual(metrics.requestCount, instruments.count)
+        XCTAssertLessThanOrEqual(metrics.maximumActiveRequests, 6)
+        store.stop()
+    }
+
+    func testReorderingDoesNotTriggerAnotherRefreshBatch() async throws {
+        let database = try MarketDatabase.inMemory()
+        let instruments = [
+            Instrument(symbol: "MOVEA", name: "甲", namespace: .unitedStates),
+            Instrument(symbol: "MOVEB", name: "乙", namespace: .unitedStates),
+        ]
+        try await database.replaceWatchlist(with: instruments)
+        let client = CountingMarketDataClient(delay: .milliseconds(1))
+        let store = MonitorStore(
+            client: client,
+            database: database,
+            preferences: makePreferences()
+        )
+        try await store.start()
+        await store.refreshAll()
+        await client.resetMetrics()
+
+        await store.moveInstruments(from: IndexSet(integer: 0), to: 2)
+
+        let metrics = await client.metrics()
+        XCTAssertEqual(metrics.requestCount, 0)
+        XCTAssertEqual(store.instruments, [instruments[1], instruments[0]])
+        store.stop()
+    }
+
+    func testShutdownFlushesPendingAlertSettingsBeforeClosingDatabase() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MarketSpriteShutdownTests.\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let path = directory.appendingPathComponent(MarketDatabase.defaultFileName).path
+        let instrument = Instrument.initialWatchlist[2]
+        let database = try MarketDatabase.open(atPath: path)
+        try await database.replaceWatchlist(with: [instrument])
+        let store = MonitorStore(
+            client: FailingMarketDataClient(),
+            database: database,
+            preferences: makePreferences()
+        )
+        try await store.start()
+        let configuration = AlertConfiguration(
+            isEnabled: true,
+            basis: .targetPrice,
+            risingThreshold: 4,
+            fallingThreshold: 2
+        )
+        store.updateAlertConfiguration(configuration)
+        store.updatePriceTargets(for: instrument, risingPrice: 220, fallingPrice: 190)
+
+        await store.shutdown()
+
+        let reopened = try MarketDatabase.open(atPath: path)
+        let settings = try await reopened.loadAlertSettings(for: [instrument])
+        XCTAssertEqual(
+            settings,
+            AlertSettingsSnapshot(
+                configuration: configuration,
+                priceTargets: [
+                    instrument.id: PriceAlertTargets(risingPrice: 220, fallingPrice: 190),
+                ]
+            )
+        )
+        try await reopened.close()
     }
 
     private func makePreferences() -> AppPreferences {
@@ -500,5 +670,58 @@ private actor OneShotSuspendingMarketDataClient: MarketDataClient {
         guard let suspendedFetch else { return }
         self.suspendedFetch = nil
         suspendedFetch.continuation.resume(returning: suspendedFetch.quote)
+    }
+}
+
+private actor CountingMarketDataClient: MarketDataClient {
+    private let delay: Duration
+    private var activeRequests = 0
+    private var maximumActiveRequests = 0
+    private var requestCount = 0
+
+    init(delay: Duration) {
+        self.delay = delay
+    }
+
+    func searchInstruments(matching query: String) async throws -> [Instrument] {
+        []
+    }
+
+    func fetchQuote(for instrument: Instrument) async throws -> QuoteSnapshot {
+        activeRequests += 1
+        requestCount += 1
+        maximumActiveRequests = max(maximumActiveRequests, activeRequests)
+        defer { activeRequests -= 1 }
+        try await Task.sleep(for: delay)
+        let time = Date(timeIntervalSince1970: 1_700_000_000)
+        return QuoteSnapshot(
+            instrumentID: instrument.id,
+            minuteBars: [
+                MinuteBar(time: time, open: 99, close: 100, high: 101, low: 98),
+                MinuteBar(
+                    time: time.addingTimeInterval(60),
+                    open: 100,
+                    close: 101,
+                    high: 102,
+                    low: 99
+                ),
+            ],
+            dayOpen: 99,
+            previousClose: 98,
+            lastPrice: 101,
+            marketTime: time.addingTimeInterval(60),
+            receivedAt: time.addingTimeInterval(61),
+            source: .tencent
+        )
+    }
+
+    func resetMetrics() {
+        activeRequests = 0
+        maximumActiveRequests = 0
+        requestCount = 0
+    }
+
+    func metrics() -> (requestCount: Int, maximumActiveRequests: Int) {
+        (requestCount, maximumActiveRequests)
     }
 }

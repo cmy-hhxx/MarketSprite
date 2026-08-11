@@ -26,6 +26,10 @@ struct WindowConfigurator: NSViewRepresentable {
         }
     }
 
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        coordinator.uninstall()
+    }
+
     private func configure(_ window: NSWindow?, coordinator: Coordinator) {
         guard let window else { return }
         window.identifier = NSUserInterfaceItemIdentifier(Self.windowIdentifier)
@@ -84,6 +88,19 @@ struct WindowConfigurator: NSViewRepresentable {
             }
         }
 
+        func uninstall() {
+            if let monitor {
+                NSEvent.removeMonitor(monitor)
+                self.monitor = nil
+            }
+            if let moveObserver {
+                NotificationCenter.default.removeObserver(moveObserver)
+                self.moveObserver = nil
+            }
+            window = nil
+            preferences = nil
+        }
+
         private func restoreOrigin(of window: NSWindow, from preferences: AppPreferences) {
             guard let origin = preferences.monitorWindowOrigin else { return }
             var proposedFrame = window.frame
@@ -94,14 +111,6 @@ struct WindowConfigurator: NSViewRepresentable {
             window.setFrameOrigin(origin)
         }
 
-        deinit {
-            if let monitor {
-                NSEvent.removeMonitor(monitor)
-            }
-            if let moveObserver {
-                NotificationCenter.default.removeObserver(moveObserver)
-            }
-        }
     }
 }
 

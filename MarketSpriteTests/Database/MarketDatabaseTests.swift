@@ -195,13 +195,100 @@ final class MarketDatabaseTests: XCTestCase {
         XCTAssertEqual(barCount, 3)
     }
 
+    func testSameRangeSourceSwitchCorrectsEarlierBarsExactly() async throws {
+        let database = try MarketDatabase.inMemory()
+        let instrument = Instrument.initialWatchlist[0]
+        try await database.replaceWatchlist(with: [instrument])
+        let original = quote(
+            for: instrument,
+            prices: [1_500, 1_501, 1_502],
+            at: "2026-07-30T07:00:00Z",
+            source: .tencent
+        )
+        var correctedBars = original.minuteBars
+        correctedBars[1] = MinuteBar(
+            time: correctedBars[1].time,
+            open: 1_510,
+            close: 1_511,
+            high: 1_512,
+            low: 1_509
+        )
+        let corrected = replacing(
+            original,
+            bars: correctedBars,
+            lastPrice: correctedBars.last?.close ?? original.lastPrice,
+            source: .eastMoney
+        )
+
+        try await database.saveQuote(original, for: instrument)
+        try await database.saveQuote(corrected, for: instrument)
+
+        let loaded = try await database.loadLatestQuotes(for: [instrument])
+        let count = try await database.quoteBarCount()
+        XCTAssertEqual(loaded[instrument.id], corrected)
+        XCTAssertEqual(count, 3)
+    }
+
+    func testShrinkingSnapshotDeletesOrphanedMinutes() async throws {
+        let database = try MarketDatabase.inMemory()
+        let instrument = Instrument.initialWatchlist[0]
+        try await database.replaceWatchlist(with: [instrument])
+        let original = quote(
+            for: instrument,
+            prices: [1_500, 1_501, 1_502],
+            at: "2026-07-30T07:00:00Z",
+            source: .tencent
+        )
+        let bars = Array(original.minuteBars.prefix(2))
+        let shortened = replacing(
+            original,
+            bars: bars,
+            lastPrice: bars.last?.close ?? original.lastPrice,
+            source: .tencent
+        )
+
+        try await database.saveQuote(original, for: instrument)
+        try await database.saveQuote(shortened, for: instrument)
+
+        let loaded = try await database.loadLatestQuotes(for: [instrument])
+        let count = try await database.quoteBarCount()
+        XCTAssertEqual(loaded[instrument.id], shortened)
+        XCTAssertEqual(count, 2)
+    }
+
+    func testInvalidMinuteSnapshotIsRejectedWithoutPartialWrites() async throws {
+        let database = try MarketDatabase.inMemory()
+        let instrument = Instrument.initialWatchlist[0]
+        try await database.replaceWatchlist(with: [instrument])
+        let valid = quote(
+            for: instrument,
+            prices: [1_500, 1_501],
+            at: "2026-07-30T07:00:00Z",
+            source: .tencent
+        )
+        let duplicate = replacing(
+            valid,
+            bars: [valid.minuteBars[0], valid.minuteBars[0]],
+            lastPrice: valid.lastPrice,
+            source: valid.source
+        )
+
+        await XCTAssertThrowsErrorAsync {
+            try await database.saveQuote(duplicate, for: instrument)
+        }
+        let count = try await database.quoteBarCount()
+        let loaded = try await database.loadLatestQuotes(for: [instrument])
+        XCTAssertEqual(count, 0)
+        XCTAssertEqual(loaded, [:])
+    }
+
     func testAlertConfigurationAndPerInstrumentTargetsRoundTrip() async throws {
         let database = try MarketDatabase.inMemory()
         let instrument = Instrument.initialWatchlist[2]
         try await database.replaceWatchlist(with: [instrument])
 
-        let initialConfiguration = try await database.loadAlertConfiguration()
-        XCTAssertEqual(initialConfiguration, .default)
+        let initialSettings = try await database.loadAlertSettings(for: [instrument])
+        XCTAssertEqual(initialSettings, .default)
 
         let configuration = AlertConfiguration(
             isEnabled: false,
@@ -210,17 +297,18 @@ final class MarketDatabaseTests: XCTestCase {
             fallingThreshold: 2.5
         )
         let targets = PriceAlertTargets(risingPrice: 220, fallingPrice: 190)
-        try await database.saveAlertConfiguration(configuration)
-        try await database.replacePriceAlertTargets([instrument.id: targets])
+        let settings = AlertSettingsSnapshot(
+            configuration: configuration,
+            priceTargets: [instrument.id: targets]
+        )
+        try await database.saveAlertSettings(settings)
 
-        let loadedConfiguration = try await database.loadAlertConfiguration()
-        let loadedTargets = try await database.loadPriceAlertTargets(for: [instrument])
-        XCTAssertEqual(loadedConfiguration, configuration)
-        XCTAssertEqual(loadedTargets, [instrument.id: targets])
+        let loadedSettings = try await database.loadAlertSettings(for: [instrument])
+        XCTAssertEqual(loadedSettings, settings)
     }
 
     func testFileDatabaseReopensWithNamespaceWatchlistQuoteAndTargets() async throws {
-        XCTAssertEqual(MarketDatabase.defaultFileName, "marketsprite-v2.sqlite")
+        XCTAssertEqual(MarketDatabase.defaultFileName, "marketsprite-v3.sqlite")
         let temporaryDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("MarketSpriteTests.\(UUID().uuidString)")
         try FileManager.default.createDirectory(
@@ -252,15 +340,30 @@ final class MarketDatabaseTests: XCTestCase {
         let reopened = try MarketDatabase.open(atPath: databasePath)
         let reopenedWatchlist = try await reopened.loadWatchlist()
         let reopenedQuotes = try await reopened.loadLatestQuotes(for: instruments)
-        let reopenedTargets = try await reopened.loadPriceAlertTargets(for: instruments)
+        let reopenedSettings = try await reopened.loadAlertSettings(for: instruments)
 
         XCTAssertEqual(reopenedWatchlist, instruments)
         XCTAssertEqual(reopenedQuotes[instruments[0].id], snapshot)
         XCTAssertEqual(
-            reopenedTargets,
+            reopenedSettings.priceTargets,
             [instruments[0].id: targets]
         )
         try await reopened.close()
+    }
+
+    func testUnsupportedSchemaVersionIsRejected() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MarketSpriteSchemaTests.\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let path = directory.appendingPathComponent("unsupported.sqlite").path
+        try SQLiteTestSupport.execute("PRAGMA user_version = 99;", atPath: path)
+
+        XCTAssertThrowsError(try MarketDatabase.open(atPath: path)) { error in
+            guard case MarketDatabaseError.unsupportedSchemaVersion(99) = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
     }
 
     private func quote(
@@ -287,9 +390,12 @@ final class MarketDatabaseTests: XCTestCase {
         try await database.replaceWatchlist(with: instruments)
         let saved = try await database.saveQuote(snapshot, for: instruments[0])
         XCTAssertTrue(saved)
-        try await database.replacePriceAlertTargets([
-            instruments[0].id: targets,
-        ])
+        try await database.saveAlertSettings(
+            AlertSettingsSnapshot(
+                configuration: .default,
+                priceTargets: [instruments[0].id: targets]
+            )
+        )
         try await database.close()
     }
 
@@ -320,5 +426,36 @@ final class MarketDatabaseTests: XCTestCase {
             receivedAt: (bars.last?.time ?? marketTime).addingTimeInterval(1),
             source: source
         )
+    }
+
+    private func replacing(
+        _ snapshot: QuoteSnapshot,
+        bars: [MinuteBar],
+        lastPrice: Double,
+        source: QuoteSource
+    ) -> QuoteSnapshot {
+        QuoteSnapshot(
+            instrumentID: snapshot.instrumentID,
+            minuteBars: bars,
+            dayOpen: snapshot.dayOpen,
+            previousClose: snapshot.previousClose,
+            lastPrice: lastPrice,
+            marketTime: bars.last?.time ?? snapshot.marketTime,
+            receivedAt: snapshot.receivedAt,
+            source: source
+        )
+    }
+}
+
+private func XCTAssertThrowsErrorAsync(
+    _ expression: () async throws -> Void,
+    file: StaticString = #filePath,
+    line: UInt = #line
+) async {
+    do {
+        try await expression()
+        XCTFail("Expected expression to throw", file: file, line: line)
+    } catch {
+        // Expected.
     }
 }

@@ -7,14 +7,14 @@ final class AppBootstrapTests: XCTestCase {
         let preferences = makePreferences()
         let bootstrap = AppBootstrap(
             preferences: preferences,
-            databasePath: "/tmp/marketsprite-v2.sqlite",
+            databasePath: "/tmp/marketsprite-v3.sqlite",
             databaseFactory: { throw TestError.databaseUnavailable }
         )
 
         await bootstrap.start()
 
         XCTAssertNil(bootstrap.store)
-        XCTAssertEqual(bootstrap.failure?.databasePath, "/tmp/marketsprite-v2.sqlite")
+        XCTAssertEqual(bootstrap.failure?.databasePath, "/tmp/marketsprite-v3.sqlite")
         XCTAssertNotNil(bootstrap.failure?.message)
     }
 

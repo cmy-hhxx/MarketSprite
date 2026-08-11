@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.6.0 - 2026-08-11
+
+### Breaking
+
+- Switched to Swift 6 complete concurrency checking and warnings-as-errors.
+- Replaced the migration chain with one current schema in `marketsprite-v3.sqlite`; v2 data is intentionally neither read nor migrated.
+
+### Changed
+
+- Added a single-flight refresh coordinator with a global six-request limit, deterministic batch results, and cancellation when Watchlist membership changes.
+- Made quote persistence synchronize exact minute snapshots, including historical corrections and removed bars.
+- Persisted alert configuration and price targets as one debounced atomic snapshot and flush pending settings before termination.
+- Validated all external instrument input, removed the hard-coded A-share holiday table, and moved database counts off the refresh hot path.
+- Split Settings by page, reduced chart strokes to two accumulated paths, added signposts, CI, and concurrency/database performance coverage.
+
 ## v0.5.0 - 2026-08-06
 
 ### Breaking

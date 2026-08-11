@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-build:
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jdx/mise-action@v2
+        with:
+          install: true
+          cache: true
+
+      - name: Verify toolchain
+        run: |
+          xcodebuild -version
+          xcrun swiftc --version
+          xcrun swiftc --version | rg -q 'Swift version 6'
+
+      - name: Verify architecture
+        run: ./Scripts/verify_architecture.sh
+
+      - name: Generate project
+        run: mise exec -- xcodegen generate
+
+      - uses: actions/cache@v4
+        with:
+          path: build/SourcePackages
+          key: swiftpm-${{ runner.os }}-${{ hashFiles('project.yml') }}
+
+      - name: Test with coverage
+        run: |
+          xcodebuild test \
+            -project MarketSprite.xcodeproj \
+            -scheme MarketSprite \
+            -destination 'platform=macOS' \
+            -derivedDataPath build/DerivedData \
+            -clonedSourcePackagesDirPath build/SourcePackages \
+            -resultBundlePath build/TestResults.xcresult \
+            -enableCodeCoverage YES \
+            CODE_SIGNING_ALLOWED=NO
+          xcrun xccov view --report build/TestResults.xcresult > build/coverage.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-summary
+          path: build/coverage.txt
+
+      - name: Run performance baselines
+        run: |
+          xcodebuild test \
+            -project MarketSprite.xcodeproj \
+            -scheme MarketSpritePerformance \
+            -destination 'platform=macOS' \
+            -derivedDataPath build/DerivedData-Performance \
+            -clonedSourcePackagesDirPath build/SourcePackages \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Build universal release
+        run: |
+          xcodebuild build \
+            -project MarketSprite.xcodeproj \
+            -scheme MarketSprite \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath build/DerivedData-Release \
+            -clonedSourcePackagesDirPath build/SourcePackages \
+            ONLY_ACTIVE_ARCH=NO \
+            ARCHS='arm64 x86_64' \
+            CODE_SIGNING_ALLOWED=NO
+          app_binary='build/DerivedData-Release/Build/Products/Release/MarketSprite.app/Contents/MacOS/MarketSprite'
+          lipo -archs "$app_binary" | tee build/release-architectures.txt
+          rg -q 'arm64' build/release-architectures.txt
+          rg -q 'x86_64' build/release-architectures.txt

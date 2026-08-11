@@ -11,7 +11,7 @@
 <p align="center">
   <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111111?logo=apple">
   <img alt="A股 港股 美股" src="https://img.shields.io/badge/市场-A股%20%7C%20港股%20%7C%20美股-EA4C61">
-  <img alt="Version 0.5.0" src="https://img.shields.io/badge/version-0.5.0-5B67F1">
+  <img alt="Version 0.6.0" src="https://img.shields.io/badge/version-0.6.0-5B67F1">
   <img alt="MIT License" src="https://img.shields.io/badge/license-MIT-4C9A2A">
 </p>
 
@@ -34,7 +34,7 @@ MarketSprite 是一个原生 macOS 桌面行情工具。用户把真正关心的
 - 调节整体缩放、紧凑模式、曲线/文字/背景透明度。
 - 支持始终置顶、拖动、鼠标穿透和全局显示/隐藏快捷键。
 - 通过 JSON 批量导入并替换观察列表。
-- 将所有已观察市场的分钟行情写入本地 SQLite；A 股收盘后显示当日 B/S 极值。
+- 将所有已观察市场的分钟行情写入本地 SQLite；已结束的 A 股行情 session 显示 B/S 极值。
 
 ## 使用
 
@@ -84,10 +84,10 @@ xcodebuild test \
 ## 数据与隐私
 
 - 标的搜索访问东方财富；分时行情优先访问腾讯并以东方财富备用。
-- 观察列表、标的、提醒配置、目标价格和所有已缓存分钟行情保存在 `~/Library/Application Support/MarketSprite/marketsprite-v2.sqlite`。
+- 观察列表、标的、提醒配置、目标价格和所有已缓存分钟行情保存在 `~/Library/Application Support/MarketSprite/marketsprite-v3.sqlite`。
 - 外观、刷新频率、声音、窗口行为和快捷键保存在 macOS 用户偏好中。
 - 应用不包含账号系统、云同步、广告、埋点或遥测。
-- v0.5.0 是一次破坏性结构升级，不读取 MingyHUD/StockPet 的旧偏好或数据库，也不迁移旧 `marketsprite.sqlite`。
+- v0.6.0 使用全新的单一 schema，不读取或迁移 `marketsprite-v2.sqlite`；旧文件不会被自动删除。
 
 完整说明见 [隐私说明](docs/PRIVACY.md)。公开网页行情可能延迟、限流或调整，不应作为下单依据。
 

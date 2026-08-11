@@ -63,6 +63,16 @@ struct PriceAlertTargets: Codable, Equatable, Sendable {
     }
 }
 
+struct AlertSettingsSnapshot: Equatable, Sendable {
+    var configuration: AlertConfiguration
+    var priceTargets: [InstrumentID: PriceAlertTargets]
+
+    static let `default` = AlertSettingsSnapshot(
+        configuration: .default,
+        priceTargets: [:]
+    )
+}
+
 struct AlertEvent: Identifiable, Sendable {
     let id = UUID()
     let instrument: Instrument

@@ -7,6 +7,8 @@ enum MarketDatabaseError: LocalizedError {
     case quoteInstrumentMismatch(expected: InstrumentID, actual: InstrumentID)
     case invalidQuoteSource(String)
     case invalidAlertBasis(String)
+    case unsupportedSchemaVersion(Int)
+    case invalidQuote(String)
 
     var errorDescription: String? {
         switch self {
@@ -30,6 +32,10 @@ enum MarketDatabaseError: LocalizedError {
             String(format: tr("数据库包含无效的行情来源：%@"), value)
         case .invalidAlertBasis(let value):
             String(format: tr("数据库包含无效的提醒依据：%@"), value)
+        case .unsupportedSchemaVersion(let version):
+            String(format: tr("不支持的数据库结构版本：%d"), version)
+        case .invalidQuote(let message):
+            String(format: tr("行情快照无效：%@"), message)
         }
     }
 }

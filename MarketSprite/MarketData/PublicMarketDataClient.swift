@@ -44,11 +44,11 @@ actor PublicMarketDataClient: MarketDataClient {
         var instruments: [Instrument] = []
         for item in response.table.data {
             guard let namespace = EastMoneyParser.namespace(for: item) else { continue }
-            let instrument = Instrument(
-                symbol: item.code,
+            guard let instrument = try? Instrument(
+                validatingSymbol: item.code,
                 name: item.name,
                 namespace: namespace
-            )
+            ) else { continue }
             guard seen.insert(instrument.id).inserted else { continue }
             if instrument.namespace == .unitedStates,
                !item.quoteIdentifier.isEmpty {
