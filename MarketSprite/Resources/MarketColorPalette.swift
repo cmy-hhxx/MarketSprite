@@ -21,9 +21,9 @@ extension MarketColorRole {
     var color: Color {
         switch self {
         case .red:
-            Color(red: 1.0, green: 0.30, blue: 0.38)
+            BrandPalette.coral
         case .green:
-            Color(red: 0.18, green: 0.82, blue: 0.55)
+            BrandPalette.mint
         }
     }
 }

@@ -20,7 +20,11 @@ struct WatchlistSettingsPage: View {
             )
 
             if let sourceError = store.sourceError {
-                Label(sourceError, systemImage: "exclamationmark.triangle.fill")
+                Label {
+                    Text(sourceError)
+                } icon: {
+                    BrandIcon(systemName: "exclamationmark.triangle.fill")
+                }
                     .font(.caption)
                     .foregroundStyle(.orange)
             }
@@ -180,8 +184,7 @@ struct WatchlistSettingsPage: View {
                     Button(role: .destructive) {
                         Task { await store.remove(instrument) }
                     } label: {
-                        Image(systemName: "trash")
-                            .foregroundStyle(.secondary)
+                        BrandIcon(systemName: "trash", size: 11, showsBackground: false)
                     }
                     .buttonStyle(.borderless)
                     .help(tr("删除"))
@@ -263,7 +266,11 @@ struct WatchlistSettingsPage: View {
                         confirmJSONImport = true
                     }
                 } label: {
-                    Label("导入 JSON", systemImage: "square.and.arrow.down")
+                    Label {
+                        Text("导入 JSON")
+                    } icon: {
+                        BrandIcon(systemName: "square.and.arrow.down")
+                    }
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(!canImportJSON || store.isWatchlistMutating)

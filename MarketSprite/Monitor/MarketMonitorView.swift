@@ -67,8 +67,7 @@ struct MarketMonitorView: View {
                 Button {
                     SettingsWindowPresenter.open { openSettings() }
                 } label: {
-                    Image(systemName: "externaldrive.badge.exclamationmark")
-                        .foregroundStyle(.orange)
+                    BrandIcon(systemName: "externaldrive.badge.exclamationmark")
                         .padding(7)
                         .background(.black.opacity(0.55), in: Circle())
                 }
@@ -96,13 +95,17 @@ struct MarketMonitorView: View {
     }
 
     private var panelBackground: some View {
-        RoundedRectangle(cornerRadius: 18, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+        return shape
             .fill(Color.black.opacity(preferences.backgroundOpacity))
+            .overlay {
+                shape.strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5)
+            }
     }
 
     private var emptyState: some View {
         HStack(spacing: 8) {
-            Image(systemName: "plus.circle.fill")
+            BrandIcon(systemName: "plus.circle.fill", showsBackground: false)
             Text("双击添加标的")
         }
         .font(.system(size: 12, weight: .semibold, design: .rounded))

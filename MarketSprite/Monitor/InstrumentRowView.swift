@@ -37,6 +37,7 @@ struct InstrumentRowView: View {
                 if let quote, quote.minuteBars.count > 1 {
                     IntradayChartView(
                         points: quote.minuteBars,
+                        market: instrument.market,
                         dayOpen: quote.dayOpen,
                         previousClose: quote.previousClose,
                         colorRole: changeRole,
@@ -78,7 +79,11 @@ struct InstrumentRowView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 if isStale {
-                    Image(systemName: "clock.badge.exclamationmark")
+                    BrandIcon(
+                        systemName: "clock.badge.exclamationmark",
+                        size: 11,
+                        showsBackground: false
+                    )
                         .font(.system(size: 8))
                         .foregroundStyle(changeRole.color.opacity(primaryOpacity))
                 }
@@ -160,6 +165,7 @@ struct InstrumentRowView: View {
 
 struct IntradayChartView: View {
     let points: [MinuteBar]
+    let market: Market
     let dayOpen: Double
     let previousClose: Double
     let colorRole: MarketColorRole
@@ -167,24 +173,35 @@ struct IntradayChartView: View {
     var showBSMarkers: Bool = false
 
     private let subdivisions = 8
-    private let buyMarkerColor = Color(red: 0.18, green: 0.82, blue: 0.55)
-    private let sellMarkerColor = Color(red: 1.0, green: 0.30, blue: 0.38)
+
+    private var extremaExplanation: String {
+        tr("收盘后复盘；S 为最高分钟收盘价，B 为随后出现上涨的最低分钟收盘价；不构成交易建议。")
+    }
 
     var body: some View {
-        Canvas { context, size in
-            guard points.count > 1 else { return }
+        let plottedPoints = points.compactMap { point -> (bar: MinuteBar, progress: Double)? in
+            guard let progress = IntradayTimeline.progress(at: point.time, market: market)
+            else { return nil }
+            return (point, progress)
+        }
+        let closes = plottedPoints.map(\.bar.close)
+        let extrema = showBSMarkers
+            ? IntradayExtremaSelection(closes: closes)
+            : nil
 
-            let closes = points.map(\.close)
+        Canvas { context, size in
+            guard plottedPoints.count > 1 else { return }
+
             let minimum = min(closes.min() ?? dayOpen, dayOpen, previousClose)
             let maximum = max(closes.max() ?? dayOpen, dayOpen, previousClose)
             let padding = max((maximum - minimum) * 0.14, max(abs(previousClose) * 0.0008, 0.01))
             let low = minimum - padding
             let high = maximum + padding
             let range = max(high - low, 0.0001)
-            let lastIndex = points.count - 1
+            let lastIndex = plottedPoints.count - 1
 
-            func coordinate(index: CGFloat, price: Double) -> CGPoint {
-                let x = size.width * index / CGFloat(max(lastIndex, 1))
+            func coordinate(progress: Double, price: Double) -> CGPoint {
+                let x = size.width * CGFloat(min(max(progress, 0), 1))
                 let normalized = (price - low) / range
                 let y = size.height * (1 - CGFloat(normalized))
                 return CGPoint(x: x, y: y)
@@ -210,7 +227,7 @@ struct IntradayChartView: View {
                 )
             }
 
-            let waterY = coordinate(index: 0, price: previousClose).y
+            let waterY = coordinate(progress: 0, price: previousClose).y
             var waterline = Path()
             waterline.move(to: CGPoint(x: 0, y: waterY))
             waterline.addLine(to: CGPoint(x: size.width, y: waterY))
@@ -238,7 +255,11 @@ struct IntradayChartView: View {
                 for step in 0...steps {
                     let t = CGFloat(step) / CGFloat(steps)
                     let price = interpolatedClose(from: index - 1, to: index, t: t)
-                    let point = coordinate(index: CGFloat(index - 1) + t, price: price)
+                    let previousProgress = plottedPoints[index - 1].progress
+                    let currentProgress = plottedPoints[index].progress
+                    let progress = previousProgress
+                        + (currentProgress - previousProgress) * Double(t)
+                    let point = coordinate(progress: progress, price: price)
                     if segmentRole == .red {
                         if step == 0 {
                             risingPath.move(to: point)
@@ -269,45 +290,46 @@ struct IntradayChartView: View {
                 )
             }
 
-            if let last = points.last {
-                let point = coordinate(index: CGFloat(lastIndex), price: last.close)
+            if let last = plottedPoints.last {
+                let point = coordinate(progress: last.progress, price: last.bar.close)
                 context.fill(
                     Path(ellipseIn: CGRect(x: point.x - 2.0, y: point.y - 2.0, width: 4.0, height: 4.0)),
                     with: .color(segmentRole.color.opacity(opacity))
                 )
             }
 
-            if showBSMarkers {
-                var buyIndex = 0
-                var sellIndex = 0
-                for index in closes.indices {
-                    if closes[index] < closes[buyIndex] {
-                        buyIndex = index
-                    }
-                    if closes[index] > closes[sellIndex] {
-                        sellIndex = index
-                    }
+            if let extrema {
+                if let buyIndex = extrema.buyIndex {
+                    drawBSMarker(
+                        context: context,
+                        canvasSize: size,
+                        at: coordinate(
+                            progress: plottedPoints[buyIndex].progress,
+                            price: closes[buyIndex]
+                        ),
+                        label: "B",
+                        color: MarketColorRole.green.color,
+                        labelAbove: false
+                    )
                 }
-                let markerOpacity = max(opacity, 0.92)
-                drawBSMarker(
-                    context: context,
-                    canvasSize: size,
-                    at: coordinate(index: CGFloat(buyIndex), price: closes[buyIndex]),
-                    label: "B",
-                    color: buyMarkerColor.opacity(markerOpacity),
-                    labelAbove: false
-                )
-                drawBSMarker(
-                    context: context,
-                    canvasSize: size,
-                    at: coordinate(index: CGFloat(sellIndex), price: closes[sellIndex]),
-                    label: "S",
-                    color: sellMarkerColor.opacity(markerOpacity),
-                    labelAbove: true
-                )
+                if let sellIndex = extrema.sellIndex {
+                    drawBSMarker(
+                        context: context,
+                        canvasSize: size,
+                        at: coordinate(
+                            progress: plottedPoints[sellIndex].progress,
+                            price: closes[sellIndex]
+                        ),
+                        label: "S",
+                        color: MarketColorRole.red.color,
+                        labelAbove: true
+                    )
+                }
             }
         }
         .accessibilityLabel(tr("当日分时曲线"))
+        .accessibilityValue(showBSMarkers ? extremaExplanation : "")
+        .help(showBSMarkers ? extremaExplanation : tr("当日分时曲线"))
     }
 
     private func drawBSMarker(
@@ -318,26 +340,120 @@ struct IntradayChartView: View {
         color: Color,
         labelAbove: Bool
     ) {
-        let ring: CGFloat = 7.2
-        let core: CGFloat = 4.6
+        let outerDiameter: CGFloat = 9.5
+        let whiteDiameter: CGFloat = 7.5
+        let coreDiameter: CGFloat = 5
+        let anchorInset = outerDiameter / 2 + 1
+        let anchor = CGPoint(
+            x: min(max(point.x, anchorInset), canvasSize.width - anchorInset),
+            y: min(max(point.y, anchorInset), canvasSize.height - anchorInset)
+        )
+
+        let badgeSize = CGSize(width: 16, height: 14)
+        let badgeX = min(
+            max(anchor.x - badgeSize.width / 2, 2),
+            canvasSize.width - badgeSize.width - 2
+        )
+        let preferredBadgeY = labelAbove
+            ? anchor.y - badgeSize.height - 7
+            : anchor.y + 7
+        let badgeY = min(
+            max(preferredBadgeY, 2),
+            canvasSize.height - badgeSize.height - 2
+        )
+        let badge = CGRect(origin: CGPoint(x: badgeX, y: badgeY), size: badgeSize)
+
+        if point != anchor {
+            var attachment = Path()
+            attachment.move(to: point)
+            attachment.addLine(to: anchor)
+            context.stroke(
+                attachment,
+                with: .color(Color.black.opacity(0.88)),
+                style: StrokeStyle(lineWidth: 3, lineCap: .round)
+            )
+            context.stroke(
+                attachment,
+                with: .color(color),
+                style: StrokeStyle(lineWidth: 1.4, lineCap: .round)
+            )
+        }
+
+        let guideStart = CGPoint(
+            x: anchor.x,
+            y: anchor.y + (labelAbove ? -outerDiameter / 2 : outerDiameter / 2)
+        )
+        let guideEnd = CGPoint(
+            x: min(max(anchor.x, badge.minX + 3), badge.maxX - 3),
+            y: labelAbove ? badge.maxY : badge.minY
+        )
+        var guide = Path()
+        guide.move(to: guideStart)
+        guide.addLine(to: guideEnd)
+        context.stroke(
+            guide,
+            with: .color(Color.black.opacity(0.88)),
+            style: StrokeStyle(lineWidth: 3, lineCap: .round)
+        )
+        context.stroke(
+            guide,
+            with: .color(Color.white.opacity(0.96)),
+            style: StrokeStyle(lineWidth: 1.2, lineCap: .round)
+        )
+
         context.fill(
-            Path(ellipseIn: CGRect(x: point.x - ring / 2, y: point.y - ring / 2, width: ring, height: ring)),
-            with: .color(Color.white.opacity(0.95))
+            Path(ellipseIn: CGRect(
+                x: anchor.x - outerDiameter / 2,
+                y: anchor.y - outerDiameter / 2,
+                width: outerDiameter,
+                height: outerDiameter
+            )),
+            with: .color(Color.black.opacity(0.92))
         )
         context.fill(
-            Path(ellipseIn: CGRect(x: point.x - core / 2, y: point.y - core / 2, width: core, height: core)),
+            Path(ellipseIn: CGRect(
+                x: anchor.x - whiteDiameter / 2,
+                y: anchor.y - whiteDiameter / 2,
+                width: whiteDiameter,
+                height: whiteDiameter
+            )),
+            with: .color(Color.white)
+        )
+        context.fill(
+            Path(ellipseIn: CGRect(
+                x: anchor.x - coreDiameter / 2,
+                y: anchor.y - coreDiameter / 2,
+                width: coreDiameter,
+                height: coreDiameter
+            )),
             with: .color(color)
         )
 
-        let badgeY = labelAbove
-            ? max(point.y - 13, 1)
-            : min(point.y + 4, canvasSize.height - 12)
-        let badgeX = min(max(point.x - 5.5, 1), canvasSize.width - 12)
-        let badge = CGRect(x: badgeX, y: badgeY, width: 11, height: 11)
-        context.fill(Path(roundedRect: badge, cornerRadius: 2.5), with: .color(color))
+        let badgePath = Path(roundedRect: badge, cornerRadius: 4)
+        let shadowBadge = badge.offsetBy(dx: 0, dy: 1.2)
+        context.fill(
+            Path(roundedRect: shadowBadge, cornerRadius: 4),
+            with: .color(Color.black.opacity(0.7))
+        )
+        context.fill(badgePath, with: .color(color))
+        context.stroke(
+            badgePath,
+            with: .color(Color.white.opacity(0.92)),
+            lineWidth: 1
+        )
+
+        let font = Font.system(size: 9.5, weight: .black, design: .rounded)
+        let shadowText = Text(label)
+            .font(font)
+            .foregroundStyle(Color.black.opacity(0.78))
         let text = Text(label)
-            .font(.system(size: 8.5, weight: .black, design: .rounded))
+            .font(font)
             .foregroundStyle(Color.white)
+        context.draw(
+            shadowText,
+            at: CGPoint(x: badge.midX, y: badge.midY + 0.7),
+            anchor: .center
+        )
         context.draw(text, at: CGPoint(x: badge.midX, y: badge.midY), anchor: .center)
     }
 }

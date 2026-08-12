@@ -7,7 +7,11 @@ struct SettingsView: View {
     var body: some View {
         NavigationSplitView {
             List(SettingsSection.allCases, selection: $selectedSection) { section in
-                Label(section.title, systemImage: section.icon)
+                Label {
+                    Text(section.title)
+                } icon: {
+                    BrandIcon(systemName: section.icon)
+                }
                     .tag(section)
             }
             .listStyle(.sidebar)
@@ -48,7 +52,11 @@ struct SettingsView: View {
 
     private func storageErrorBanner(_ message: String) -> some View {
         HStack(alignment: .top, spacing: 8) {
-            Label(message, systemImage: "externaldrive.badge.exclamationmark")
+            Label {
+                Text(message)
+            } icon: {
+                BrandIcon(systemName: "externaldrive.badge.exclamationmark")
+            }
                 .font(.caption)
                 .foregroundStyle(.orange)
                 .fixedSize(horizontal: false, vertical: true)
@@ -57,7 +65,7 @@ struct SettingsView: View {
             Button {
                 store.dismissStorageError()
             } label: {
-                Image(systemName: "xmark.circle.fill")
+                BrandIcon(systemName: "xmark.circle.fill", size: 11, showsBackground: false)
             }
             .buttonStyle(.plain)
             .help(tr("关闭"))

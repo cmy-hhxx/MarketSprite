@@ -12,7 +12,11 @@ struct AppearanceSettingsPage: View {
 
             SettingsCard {
                 HStack {
-                    Label("整体大小", systemImage: "arrow.up.left.and.arrow.down.right")
+                    Label {
+                        Text("整体大小")
+                    } icon: {
+                        BrandIcon(systemName: "arrow.up.left.and.arrow.down.right")
+                    }
                         .frame(width: 130, alignment: .leading)
                     Slider(value: $preferences.displayScale, in: 0.65...1.6, step: 0.05)
                     Text("\(Int(preferences.displayScale * 100))%")
@@ -45,16 +49,28 @@ struct AppearanceSettingsPage: View {
 
             SettingsCard {
                 Toggle(isOn: $preferences.compactMode) {
-                    Label("紧凑模式", systemImage: "rectangle.compress.vertical")
+                    Label {
+                        Text("紧凑模式")
+                    } icon: {
+                        BrandIcon(systemName: "rectangle.compress.vertical")
+                    }
                 }
                 Divider().opacity(0.5)
                 Toggle(isOn: $preferences.alwaysOnTop) {
-                    Label("始终置顶", systemImage: "pin.fill")
+                    Label {
+                        Text("始终置顶")
+                    } icon: {
+                        BrandIcon(systemName: "pin.fill")
+                    }
                 }
                 Divider().opacity(0.5)
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle(isOn: $preferences.clickThrough) {
-                        Label("锁定并穿透鼠标", systemImage: "cursorarrow.slash")
+                        Label {
+                            Text("锁定并穿透鼠标")
+                        } icon: {
+                            BrandIcon(systemName: "cursorarrow.slash")
+                        }
                     }
                     Text("锁定后需从菜单栏的曲线图标关闭穿透。")
                         .font(.caption)
@@ -65,7 +81,11 @@ struct AppearanceSettingsPage: View {
 
             SettingsCard {
                 Toggle(isOn: $preferences.shortcutEnabled) {
-                    Label("快捷键显示/隐藏行情面板", systemImage: "keyboard")
+                    Label {
+                        Text("快捷键显示/隐藏行情面板")
+                    } icon: {
+                        BrandIcon(systemName: "keyboard")
+                    }
                 }
                 Divider().opacity(0.5)
                 HStack {
@@ -108,7 +128,11 @@ struct AppearanceSettingsPage: View {
         range: ClosedRange<Double>
     ) -> some View {
         HStack {
-            Label(tr(title), systemImage: icon)
+            Label {
+                Text(tr(title))
+            } icon: {
+                BrandIcon(systemName: icon)
+            }
                 .frame(width: 160, alignment: .leading)
             Slider(value: value, in: range)
             Text("\(Int(value.wrappedValue * 100))%")

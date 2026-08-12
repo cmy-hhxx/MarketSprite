@@ -17,11 +17,19 @@ struct AlertsSettingsPage: View {
 
             SettingsCard {
                 Toggle(isOn: alertConfigurationBinding(\.isEnabled)) {
-                    Label("开启牛熊提醒", systemImage: "bell.badge.fill")
+                    Label {
+                        Text("开启牛熊提醒")
+                    } icon: {
+                        BrandIcon(systemName: "bell.badge.fill")
+                    }
                 }
                 Divider().opacity(0.5)
                 HStack {
-                    Label("提醒依据", systemImage: "scope")
+                    Label {
+                        Text("提醒依据")
+                    } icon: {
+                        BrandIcon(systemName: "scope")
+                    }
                     Spacer()
                     Picker("", selection: alertConfigurationBinding(\.basis)) {
                         ForEach(AlertBasis.allCases) { basis in
@@ -37,14 +45,14 @@ struct AlertsSettingsPage: View {
                     if store.alertConfiguration.basis == .percentage {
                         thresholdRow(
                             title: "上涨超过",
-                            mascot: "🐂",
+                            mascotAsset: "BullMascot",
                             value: alertConfigurationBinding(\.risingThreshold),
                             color: .red
                         )
                         Divider().opacity(0.5)
                         thresholdRow(
                             title: "下跌超过",
-                            mascot: "🐻",
+                            mascotAsset: "BearMascot",
                             value: alertConfigurationBinding(\.fallingThreshold),
                             color: .green
                         )
@@ -60,11 +68,19 @@ struct AlertsSettingsPage: View {
                     )
                     Divider().opacity(0.5)
                     Toggle(isOn: $preferences.bullSoundEnabled) {
-                        Label("小牛提示音（短促牛叫）", systemImage: "speaker.wave.2.fill")
+                        Label {
+                            Text("小牛提示音（短促牛叫）")
+                        } icon: {
+                            BrandIcon(systemName: "speaker.wave.2.fill")
+                        }
                     }
                     Divider().opacity(0.5)
                     Toggle(isOn: $preferences.bearSoundEnabled) {
-                        Label("小熊提示音（短促吼声）", systemImage: "speaker.wave.2.fill")
+                        Label {
+                            Text("小熊提示音（短促吼声）")
+                        } icon: {
+                            BrandIcon(systemName: "speaker.wave.2.fill")
+                        }
                     }
                 }
                 .disabled(!store.alertConfiguration.isEnabled)
@@ -108,7 +124,11 @@ struct AlertsSettingsPage: View {
                     if isRefreshingAlertPrices {
                         ProgressView().controlSize(.small)
                     } else {
-                        Label("刷新实时价", systemImage: "arrow.clockwise")
+                        Label {
+                            Text("刷新实时价")
+                        } icon: {
+                            BrandIcon(systemName: "arrow.clockwise")
+                        }
                     }
                 }
                 .disabled(isRefreshingAlertPrices)
@@ -181,13 +201,15 @@ struct AlertsSettingsPage: View {
 
             HStack(spacing: 12) {
                 priceField(
-                    title: "🐂 小牛价 ≥",
+                    title: "小牛价 ≥",
+                    mascotAsset: "BullMascot",
                     instrument: instrument,
                     isRising: true,
                     value: targets.risingPrice
                 )
                 priceField(
-                    title: "🐻 小熊价 ≤",
+                    title: "小熊价 ≤",
+                    mascotAsset: "BearMascot",
                     instrument: instrument,
                     isRising: false,
                     value: targets.fallingPrice
@@ -201,11 +223,16 @@ struct AlertsSettingsPage: View {
 
     private func priceField(
         title: String,
+        mascotAsset: String,
         instrument: Instrument,
         isRising: Bool,
         value: Double
     ) -> some View {
         HStack(spacing: 6) {
+            Image(mascotAsset)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 20, height: 20)
             Text(tr(title))
                 .font(.caption)
             Text(instrument.market.currencySymbol)
@@ -272,7 +299,11 @@ struct AlertsSettingsPage: View {
         range: ClosedRange<Double>
     ) -> some View {
         HStack {
-            Label(tr(title), systemImage: icon)
+            Label {
+                Text(tr(title))
+            } icon: {
+                BrandIcon(systemName: icon)
+            }
                 .frame(width: 160, alignment: .leading)
             Slider(value: value, in: range)
             Text("\(Int(value.wrappedValue * 100))%")
@@ -284,12 +315,15 @@ struct AlertsSettingsPage: View {
 
     private func thresholdRow(
         title: String,
-        mascot: String,
+        mascotAsset: String,
         value: Binding<Double>,
         color: Color
     ) -> some View {
         HStack(spacing: 12) {
-            Text(mascot).font(.system(size: 22))
+            Image(mascotAsset)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 28, height: 28)
             Text(tr(title)).frame(width: 80, alignment: .leading)
             Slider(value: value, in: 0.5...15, step: 0.5)
                 .tint(color)

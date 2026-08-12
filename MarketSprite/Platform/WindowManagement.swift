@@ -39,6 +39,7 @@ struct WindowConfigurator: NSViewRepresentable {
         window.titlebarSeparatorStyle = .none
         window.backgroundColor = .clear
         window.isOpaque = false
+        window.appearance = NSAppearance(named: .darkAqua)
         window.hasShadow = false
         window.isMovableByWindowBackground = true
         window.level = alwaysOnTop ? .floating : .normal

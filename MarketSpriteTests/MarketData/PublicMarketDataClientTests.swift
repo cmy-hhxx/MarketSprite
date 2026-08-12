@@ -122,6 +122,61 @@ final class PublicMarketDataClientTests: XCTestCase {
         )
     }
 
+    func testProviderOHLCInconsistencyStillProducesPersistableSnapshot() async throws {
+        StubURLProtocol.handler = { request in
+            switch request.url?.host {
+            case "web.ifzq.gtimg.cn":
+                return Self.response(for: request, json: "{}", statusCode: 503)
+            case "searchapi.eastmoney.com":
+                return Self.response(
+                    for: request,
+                    json: """
+                    {
+                      "QuotationCodeTable": {
+                        "Data": [
+                          {"Code":"AAPL","Name":"苹果","Classify":"UsStock","MktNum":"105","QuoteID":"105.AAPL"}
+                        ],
+                        "Status": 0,
+                        "Message": "OK"
+                      }
+                    }
+                    """
+                )
+            case "push2delay.eastmoney.com":
+                return Self.response(
+                    for: request,
+                    json: """
+                    {
+                      "rc": 0,
+                      "data": {
+                        "preClose": 306.90,
+                        "trends": [
+                          "2026-08-11 03:59,307.850,307.855,307.870,307.670,377815,116307446.000,307.1253",
+                          "2026-08-11 04:00,307.855,308.260,308.250,307.800,10600910,3259890016.000,306.8981"
+                        ]
+                      }
+                    }
+                    """
+                )
+            default:
+                XCTFail("Unexpected host: \(request.url?.host ?? "nil")")
+                return Self.response(for: request, json: "{}", statusCode: 500)
+            }
+        }
+        let client = PublicMarketDataClient(session: makeSession())
+        let instrument = Instrument.initialWatchlist[2]
+        let database = try MarketDatabase.inMemory()
+        try await database.replaceWatchlist(with: [instrument])
+
+        let quote = try await client.fetchQuote(for: instrument)
+        let saved = try await database.saveQuote(quote, for: instrument)
+        let lastBar = try XCTUnwrap(quote.minuteBars.last)
+
+        XCTAssertTrue(saved)
+        XCTAssertEqual(lastBar.close, 308.260, accuracy: 0.001)
+        XCTAssertEqual(lastBar.high, 308.260, accuracy: 0.001)
+    }
+
     func testUSFallbackResolvesItsProviderIdentifierWithoutPriorSearch() async throws {
         StubURLProtocol.handler = { request in
             switch request.url?.host {

@@ -11,7 +11,11 @@ struct DataSettingsPage: View {
 
             SettingsCard {
                 HStack {
-                    Label("刷新频率", systemImage: "arrow.clockwise")
+                    Label {
+                        Text("刷新频率")
+                    } icon: {
+                        BrandIcon(systemName: "arrow.clockwise")
+                    }
                     Spacer()
                     Picker("", selection: $preferences.refreshInterval) {
                         Text("15 秒").tag(15)
@@ -52,7 +56,11 @@ struct DataSettingsPage: View {
                 Button(role: .destructive) {
                     confirmClearQuoteDB = true
                 } label: {
-                    Label("清空行情库", systemImage: "trash")
+                    Label {
+                        Text("清空行情库")
+                    } icon: {
+                        BrandIcon(systemName: "trash")
+                    }
                 }
                 .confirmationDialog(
                     tr("清空全部已存分钟行情？此操作不可撤销。"),
@@ -72,7 +80,11 @@ struct DataSettingsPage: View {
                     await store.refreshQuoteBarCount()
                 }
             } label: {
-                Label("立即刷新全部标的", systemImage: "arrow.clockwise")
+                Label {
+                    Text("立即刷新全部标的")
+                } icon: {
+                    BrandIcon(systemName: "arrow.clockwise")
+                }
             }
             .buttonStyle(.borderedProminent)
 
@@ -85,7 +97,7 @@ struct DataSettingsPage: View {
                     Text("• 公开网页行情可能延迟、限流或调整，不应用于下单决策。")
                     Text("• 港股、美股实时权限受交易所授权约束；若需要交易级数据，可后续接入富途 OpenD 或券商行情。")
                     Text("• 接口失败时不会生成假曲线，只保留最后一次成功数据并标记为过期。")
-                    Text("• 已观察标的的分钟线会写入本地 SQLite；A 股已结束的行情 session 会标注 B/S 极值。")
+                    Text("• A 股收盘后复盘标记：S 为最高分钟收盘价，B 仅标注随后出现上涨的最低分钟收盘价；不构成交易建议。")
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)

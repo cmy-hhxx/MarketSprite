@@ -14,15 +14,15 @@ enum EastMoneyParser {
               let close = Double(values[2]),
               let high = Double(values[3]),
               let low = Double(values[4]),
-              close > 0
+              [open, close, high, low].allSatisfy({ $0.isFinite && $0 > 0 })
         else { return nil }
 
         return MinuteBar(
             time: date,
             open: open,
             close: close,
-            high: high,
-            low: low
+            high: max(open, close, high, low),
+            low: min(open, close, high, low)
         )
     }
 

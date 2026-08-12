@@ -53,7 +53,7 @@ struct MarketSpriteApp: App {
         .windowResizability(.contentSize)
         .defaultPosition(.topTrailing)
 
-        MenuBarExtra(AppIdentity.displayName, systemImage: "chart.xyaxis.line") {
+        MenuBarExtra(AppIdentity.displayName, image: "MenuBarIcon") {
             if let store = bootstrap.store {
                 MenuBarContent()
                     .environmentObject(store)
@@ -107,7 +107,11 @@ private struct DatabaseUnavailableView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Label(tr("本地数据库不可用"), systemImage: "externaldrive.badge.exclamationmark")
+            Label {
+                Text(tr("本地数据库不可用"))
+            } icon: {
+                BrandIcon(systemName: "externaldrive.badge.exclamationmark")
+            }
                 .font(.title2.bold())
             Text(failure.message)
                 .foregroundStyle(.secondary)
