@@ -9,7 +9,7 @@ MarketSprite 不要求注册账号。以下数据保存在本机：
 - 观察列表、标的信息、提醒配置、逐标的目标价格和分钟行情：`~/Library/Application Support/MarketSprite/marketsprite-v3.sqlite`。
 - 外观、刷新频率、声音、窗口行为和快捷键：macOS 用户偏好域 `io.github.cmy-hhxx.marketsprite`。
 
-v0.6.0 不读取、复制、删除或迁移 `marketsprite-v2.sqlite`。MingyHUD/StockPet 的旧偏好和数据库同样不会被读取或自动删除。
+v0.1.0 不读取、复制、删除或迁移 `marketsprite-v2.sqlite`。MingyHUD/StockPet 的旧偏好和数据库同样不会被读取或自动删除。
 
 ## 网络请求
 

@@ -12,6 +12,8 @@ build/
 dist/
 tmp/
 *.xcresult
+__pycache__/
+*.py[cod]
 
 # Generated from project.yml
 MarketSprite.xcodeproj/

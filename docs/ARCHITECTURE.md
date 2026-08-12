@@ -83,7 +83,7 @@ flowchart LR
 - 只有 `Settings/AppPreferences.swift` 可以访问 `UserDefaults`。
 - 只有 `MarketData/PublicMarketDataClient.swift` 可以使用 `URLSession` 发起行情请求。
 - `InstrumentID` 固定为 `namespace:symbol`。Market 只表达时区和展示惯例，不能区分上交所、深交所与北交所；提供方 QuoteID 可以缓存在 adapter 内，但不能作为领域身份持久化。
-- v0.6.0 不保留兼容别名、旧迁移、重复 Store 或本地数据库包装 Package。
+- v0.1.0 不保留兼容别名、旧迁移、重复 Store 或本地数据库包装 Package。
 
 运行 `Scripts/verify_architecture.sh` 可以机械检查这些约束。
 

@@ -65,7 +65,7 @@ docs/
 
 `AppPreferences` 使用当前 bundle 的 macOS 用户偏好域，只保存外观、刷新频率、声音、窗口行为和快捷键。
 
-v0.6.0 只接受当前完整 schema，不注册 migration。它不读取、复制、删除或迁移 `marketsprite-v2.sqlite`；旧文件与新库使用不同文件名。
+v0.1.0 只接受当前完整 schema，不注册 migration。它不读取、复制、删除或迁移 `marketsprite-v2.sqlite`；旧文件与新库使用不同文件名。
 
 ## 测试
 
@@ -115,6 +115,23 @@ xcodebuild build \
   ONLY_ACTIVE_ARCH=NO \
   ARCHS='arm64 x86_64' \
   CODE_SIGNING_ALLOWED=NO
+```
+
+## 制作 DMG
+
+发布脚本会构建 Universal Release、执行 ad-hoc 签名、生成品牌化 HiDPI 安装窗口，并重新挂载校验版本、双架构、签名和 Applications 链接：
+
+```bash
+Scripts/build_release_dmg.sh
+```
+
+产物位于 `build/Dist/MarketSprite-<version>.dmg`。DMG 使用固定版本的 `dmgbuild`；`project.yml` 是应用版本、构建号和文件名的唯一来源。
+
+需要修改安装背景时，编辑 `Distribution/DMG/generate_background.py`，再重新生成 1×/2× 资源：
+
+```bash
+mise exec -- uv run --with pillow==12.3.0 \
+  python Distribution/DMG/generate_background.py
 ```
 
 ## 架构校验
