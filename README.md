@@ -17,9 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/readme/app-window.png" width="900" alt="MarketSprite 0.1.0 实机窗口，显示真实收盘行情及 B/S 复盘点">
-  <br>
-  <sub>实机截图 · 数据来自本机行情库保存的 2026-08-11 A 股收盘分钟线，B/S 由 0.1.0 当前代码计算。</sub>
+  <img src="docs/assets/readme/hero.webp" width="900" alt="MarketSprite 牛熊图标与真实 B/S 桌面行情面板">
 </p>
 
 MarketSprite 是一个原生 macOS 桌面行情与价格提醒工具。它持续展示观察列表中的当日分时、最新价和涨跌幅，在价格越过明确阈值时提醒你，但不替你做交易决定。
