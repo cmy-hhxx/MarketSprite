@@ -149,6 +149,7 @@ final class ChartPerformanceBaselineTests: XCTestCase {
             let renderer = ImageRenderer(
                 content: IntradayChartView(
                     points: bars,
+                    market: .aShare,
                     dayOpen: 100,
                     previousClose: 100,
                     colorRole: .red,
