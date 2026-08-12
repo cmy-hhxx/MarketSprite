@@ -69,8 +69,8 @@ final class AppPreferences: ObservableObject {
             to: 0.35...1
         )
         backgroundOpacity = Self.clamp(
-            Self.double(defaults, key: Keys.backgroundOpacity, fallback: 0.16),
-            to: 0...0.55
+            Self.double(defaults, key: Keys.backgroundOpacity, fallback: 0.55),
+            to: 0...1
         )
         refreshInterval = Self.sanitizedRefreshInterval(
             Self.integer(defaults, key: Keys.refreshInterval, fallback: 15)
@@ -113,7 +113,7 @@ final class AppPreferences: ObservableObject {
     func resetAppearance() {
         lineOpacity = 0.92
         labelOpacity = 0.92
-        backgroundOpacity = 0.16
+        backgroundOpacity = 0.55
         compactMode = false
         displayScale = 1
     }

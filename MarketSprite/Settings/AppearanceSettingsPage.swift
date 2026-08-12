@@ -43,7 +43,7 @@ struct AppearanceSettingsPage: View {
                     title: "背景板不透明度",
                     icon: "square.on.square",
                     value: $preferences.backgroundOpacity,
-                    range: 0...0.55
+                    range: 0...1
                 )
             }
 

@@ -67,7 +67,7 @@ final class AppPreferencesTests: XCTestCase {
 
         XCTAssertEqual(preferences.lineOpacity, 0.15)
         XCTAssertEqual(preferences.labelOpacity, 1)
-        XCTAssertEqual(preferences.backgroundOpacity, 0.55)
+        XCTAssertEqual(preferences.backgroundOpacity, 1)
         XCTAssertEqual(preferences.refreshInterval, 15)
         XCTAssertEqual(preferences.displayScale, 1.6)
         XCTAssertEqual(preferences.alertOpacity, 0.2)

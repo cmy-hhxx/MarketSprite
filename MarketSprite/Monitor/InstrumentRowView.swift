@@ -14,14 +14,12 @@ struct InstrumentRowView: View {
         instrument.market.colorRole(isRising: (quote?.changePercent ?? 0) >= 0)
     }
 
-    /// 名称/价格：保底不透明，避免发灰发糊。
     private var primaryOpacity: Double {
-        max(0.92, min(labelOpacity, 1))
+        min(max(labelOpacity, 0), 1)
     }
 
-    /// 代码行：略低于主文字，但仍保证可读。
     private var codeOpacity: Double {
-        max(0.78, min(labelOpacity, 1))
+        primaryOpacity * 0.72
     }
 
     private var labelWidth: CGFloat { compact ? 148 : 176 }
@@ -70,11 +68,16 @@ struct InstrumentRowView: View {
                 Text(instrument.name)
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .font(.system(size: compact ? 11 : 12, weight: .semibold, design: .rounded))
+                    .font(.system(size: compact ? 11.5 : 12.5, weight: .medium))
                     .foregroundStyle(
                         quote == nil
                             ? Color.white.opacity(primaryOpacity)
                             : changeRole.color.opacity(primaryOpacity)
+                    )
+                    .shadow(
+                        color: Color.black.opacity(0.28 * primaryOpacity),
+                        radius: 0.7,
+                        y: 0.5
                     )
                     .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -94,13 +97,22 @@ struct InstrumentRowView: View {
                 Text(instrument.namespace.displayName)
                     .padding(.horizontal, 4)
                     .padding(.vertical, 1)
-                    .background(changeRole.color.opacity(0.22), in: Capsule())
+                    .background(
+                        changeRole.color.opacity(0.16 * primaryOpacity),
+                        in: Capsule()
+                    )
             }
-            .font(.system(size: compact ? 8 : 9, weight: .semibold, design: .monospaced))
+            .font(.system(size: compact ? 8.5 : 9.5, weight: .medium))
+            .tracking(0.12)
             .foregroundStyle(
                 quote == nil
                     ? Color.white.opacity(codeOpacity)
                     : changeRole.color.opacity(codeOpacity)
+            )
+            .shadow(
+                color: Color.black.opacity(0.22 * primaryOpacity),
+                radius: 0.6,
+                y: 0.5
             )
             .lineLimit(1)
         }
@@ -116,12 +128,24 @@ struct InstrumentRowView: View {
         if let quote {
             VStack(alignment: .trailing, spacing: compact ? 1 : 3) {
                 Text(priceText(quote.lastPrice))
-                    .font(.system(size: compact ? 12 : 14, weight: .semibold, design: .monospaced))
+                    .font(.system(size: compact ? 13 : 15, weight: .semibold))
+                    .monospacedDigit()
                     .foregroundStyle(changeRole.color.opacity(primaryOpacity))
+                    .shadow(
+                        color: Color.black.opacity(0.28 * primaryOpacity),
+                        radius: 0.7,
+                        y: 0.5
+                    )
 
                 Text(percentText(quote.changePercent))
-                    .font(.system(size: compact ? 10 : 11, weight: .bold, design: .rounded))
+                    .font(.system(size: compact ? 10 : 11, weight: .medium))
+                    .monospacedDigit()
                     .foregroundStyle(changeRole.color.opacity(primaryOpacity))
+                    .shadow(
+                        color: Color.black.opacity(0.24 * primaryOpacity),
+                        radius: 0.6,
+                        y: 0.5
+                    )
             }
         } else {
             VStack(alignment: .trailing, spacing: 3) {
@@ -233,8 +257,13 @@ struct IntradayChartView: View {
             waterline.addLine(to: CGPoint(x: size.width, y: waterY))
             context.stroke(
                 waterline,
-                with: .color(.white.opacity(0.22 * opacity)),
-                style: StrokeStyle(lineWidth: 0.8, dash: [3, 4])
+                with: .color(.black.opacity(0.2 + 0.14 * opacity)),
+                style: StrokeStyle(lineWidth: 1.8, dash: [3, 4])
+            )
+            context.stroke(
+                waterline,
+                with: .color(.white.opacity(0.3 + 0.22 * opacity)),
+                style: StrokeStyle(lineWidth: 0.7, dash: [3, 4])
             )
 
             let strokeStyle = StrokeStyle(lineWidth: 1.55, lineCap: .round, lineJoin: .round)
