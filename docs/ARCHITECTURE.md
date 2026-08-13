@@ -50,7 +50,7 @@ flowchart LR
     Client --> EastMoney["东方财富备用路径"]
 ```
 
-`AppBootstrap` 先打开 `marketsprite-v3.sqlite`，再调用 `MonitorStore.start()` 恢复 Watchlist、缓存行情和提醒数据。只有数据库打开与本地恢复全部成功后，应用才进入可用状态并启动行情刷新；失败时不会降级为内存数据库，而是进入只提供重试、显示目录和退出操作的数据库错误状态。刷新失败时保留最后一次成功快照，并把标的标记为 stale。
+`AppBootstrap` 先打开 `marketsprite.sqlite`，再调用 `MonitorStore.start()` 恢复 Watchlist、缓存行情和提醒数据。只有数据库打开与本地恢复全部成功后，应用才进入可用状态并启动行情刷新；失败时不会降级为内存数据库，而是进入只提供重试、显示目录和退出操作的数据库错误状态。刷新失败时保留最后一次成功快照，并把标的标记为 stale。
 
 `MonitorStore` 合并相同 Watchlist revision 的刷新调用，并在成员变化时取消旧批次。`QuoteRefreshCoordinator` 将网络、行情新鲜度判断和精确数据库快照写入藏在一个内部接口后，所有同时存在的刷新批次共享最多 6 个网络许可。批次结果按 Watchlist 顺序一次性应用到 UI。
 
@@ -61,7 +61,7 @@ flowchart LR
 | 数据或行为 | 所有者 | 规则 |
 | --- | --- | --- |
 | Instruments 与有序 Watchlist | `MarketDatabase` | SQLite 是权威来源；Instrument 保存 Symbol Namespace，Market 由 Namespace 计算；用户主动清空后不能再次自动补默认标的。 |
-| 所有支持 Market 的 Quote Sessions 与 Minute Bars | `MarketDatabase` | 所有 GRDB 调用必须留在 `Database/`；每次保存后当前 session 必须与完整快照精确一致。 |
+| 行情缓存与分钟线（每个观察标的最多一个最新交易日） | `MarketDatabase` | 所有 GRDB 调用必须留在 `Database/`；每次保存后当前 session 必须与完整快照精确一致；移除标的时缓存级联删除。 |
 | Alert Configuration 与 Price Alert Targets | `MarketDatabase` | 两者作为一个 `AlertSettingsSnapshot` 原子保存；提醒属于持久化产品数据，不是外观偏好。 |
 | 外观、刷新频率、声音、窗口行为、快捷键 | `AppPreferences` | 所有 `UserDefaults` 调用必须留在这个模块。 |
 | 提供方 URL、Payload 与提供方标识 | `PublicMarketDataClient` | 提供方细节不能进入 `InstrumentID` 或持久化领域模型。 |
@@ -72,7 +72,7 @@ flowchart LR
 
 `MarketDataClient` 是真实 seam：生产环境使用 `PublicMarketDataClient`，测试使用确定性的 adapter。提供方解析与回退逻辑都藏在这个接口后面。
 
-`MarketDatabase` 是一个深的本地模块，而不是 repository protocol。生产与测试使用同一套实现，测试通过内存库、临时文件库和只读 SQLite 运行。数据库只接受当前 schema version 1；`user_version == 0` 时原子创建完整 schema，其他版本直接拒绝，不执行 migration。
+`MarketDatabase` 是一个深的本地模块，而不是 repository protocol。生产与测试使用同一套实现，测试通过内存库、临时文件库和只读 SQLite 运行。主数据库固定为 `marketsprite.sqlite`：空库原子创建当前结构；固定主库不存在且检测到指定旧库时，在临时库内完成一次性迁移，验证后原子替换；固定主库已存在时始终以它为准，不再读取旧库。主库建立并验证成功后，根目录内的旧数据库、早期行情库、人工备份及边车文件统一归档到 `Backups/`。启动时校验 `application_id`、结构代数、`PRAGMA quick_check` 和外键一致性，其他结构代数直接拒绝。
 
 `AppPreferences` 是唯一偏好模块。View 只绑定类型化属性，不知道具体偏好键。
 
@@ -83,11 +83,11 @@ flowchart LR
 - 只有 `Settings/AppPreferences.swift` 可以访问 `UserDefaults`。
 - 只有 `MarketData/PublicMarketDataClient.swift` 可以使用 `URLSession` 发起行情请求。
 - `InstrumentID` 固定为 `namespace:symbol`。Market 只表达时区和展示惯例，不能区分上交所、深交所与北交所；提供方 QuoteID 可以缓存在 adapter 内，但不能作为领域身份持久化。
-- v0.1.0 不保留兼容别名、旧迁移、重复 Store 或本地数据库包装 Package。
+- 当前发布线不保留兼容别名、旧迁移、重复 Store 或本地数据库包装 Package。
 
 运行 `Scripts/verify_architecture.sh` 可以机械检查这些约束。
 
-相关决策见 [ADR-0001：使用 Symbol Namespace 构成标的身份](adr/0001-symbol-namespace-identity.md)。
+相关决策见 [ADR-0001：使用 Symbol Namespace 构成标的身份](adr/0001-symbol-namespace-identity.md) 与 [ADR-0002：固定主数据库与内部结构代数](adr/0002-fixed-main-database.md)。
 
 ## 工程生成
 

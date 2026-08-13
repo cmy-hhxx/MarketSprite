@@ -26,7 +26,7 @@ final class PerformanceBaselineTests: XCTestCase {
         }
     }
 
-    func testOpeningOneYearCacheBaseline() async throws {
+    func testOpeningBoundedCacheAfterDayTransitionsBaseline() async throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("MarketSpritePerformance.\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -35,6 +35,8 @@ final class PerformanceBaselineTests: XCTestCase {
         let instrument = Instrument.initialWatchlist[0]
         let database = try MarketDatabase.open(atPath: path)
         try await database.replaceWatchlist(with: [instrument])
+        // Each new trading day replaces the prior cache, so after 252 day
+        // transitions the database stays bounded to a single latest session.
         for day in 0..<252 {
             _ = try await database.saveQuote(
                 Self.snapshot(for: instrument, barCount: 240, dayOffset: day),
@@ -42,6 +44,11 @@ final class PerformanceBaselineTests: XCTestCase {
             )
         }
         try await database.close()
+
+        let reopened = try MarketDatabase.open(atPath: path)
+        let barCount = try await reopened.quoteBarCount()
+        XCTAssertEqual(barCount, 240)
+        try await reopened.close()
 
         measure(metrics: [XCTClockMetric(), XCTMemoryMetric()], options: options) {
             waitForAsyncOperation {

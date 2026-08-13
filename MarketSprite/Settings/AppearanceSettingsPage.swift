@@ -6,8 +6,7 @@ struct AppearanceSettingsPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             SettingsPageTitle(
-                title: "外观与交互",
-                subtitle: "让它融进桌面，而不是挡住工作"
+                title: "外观与交互"
             )
 
             SettingsCard {

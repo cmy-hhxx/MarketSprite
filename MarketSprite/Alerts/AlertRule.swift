@@ -48,17 +48,17 @@ struct AlertConfiguration: Equatable, Sendable {
 }
 
 struct PriceAlertTargets: Codable, Equatable, Sendable {
-    var risingPrice: Double
-    var fallingPrice: Double
+    var risingPrice: Double?
+    var fallingPrice: Double?
 
     var isEnabled: Bool {
-        risingPrice > 0 || fallingPrice > 0
+        risingPrice != nil || fallingPrice != nil
     }
 
     var rule: AlertRule {
         .targetPrice(
-            rising: risingPrice > 0 ? risingPrice : nil,
-            falling: fallingPrice > 0 ? fallingPrice : nil
+            rising: risingPrice,
+            falling: fallingPrice
         )
     }
 }

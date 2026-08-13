@@ -56,16 +56,15 @@ docs/
 
 ## 持久化
 
-`MarketDatabase` 使用 `~/Library/Application Support/MarketSprite/marketsprite-v3.sqlite`，保存：
+`MarketDatabase` 使用 `~/Library/Application Support/MarketSprite/marketsprite.sqlite`，保存：
 
-- Instruments 与有序 Watchlist
-- 所有支持 Market 的 Quote Snapshots 与 Minute Bars
+- 有序 Watchlist
+- 每个观察标的最多一个最新交易日的行情缓存（Quote Cache）与分钟线
 - Alert Configuration 与逐标的 Price Alert Targets
-- 应用初始化元数据
 
 `AppPreferences` 使用当前 bundle 的 macOS 用户偏好域，只保存外观、刷新频率、声音、窗口行为和快捷键。
 
-v0.1.0 只接受当前完整 schema，不注册 migration。它不读取、复制、删除或迁移 `marketsprite-v2.sqlite`；旧文件与新库使用不同文件名。
+主文件名永远固定为 `marketsprite.sqlite`，不表达产品版本或结构代数；结构代数只由 `PRAGMA user_version` 表达。固定主库不存在且检测到指定旧库时，迁移在临时库内完成，验证成功后再原子替换；固定主库已存在时始终以它为准。主库建立并验证后，Application Support 根目录内的旧数据库、早期行情库、人工备份及边车文件独立归档到 `Backups/legacy-<UTC时间>/`，无论本次启动是否执行过迁移。正常读写路径只理解当前结构，也永不扫描 `Backups/`。
 
 ## 测试
 
@@ -91,7 +90,7 @@ xcodebuild test \
   CODE_SIGNING_ALLOWED=NO
 ```
 
-运行不设绝对耗时门槛的性能基线（10/100 标的刷新、240 根分钟线、一年缓存和图表渲染）：
+运行不设绝对耗时门槛的性能基线（10/100 标的刷新、240 根分钟线、252 个交易日替换后的有界缓存和图表渲染）：
 
 ```bash
 xcodebuild test \

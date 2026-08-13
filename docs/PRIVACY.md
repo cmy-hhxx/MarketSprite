@@ -1,15 +1,15 @@
 # MarketSprite 隐私说明
 
-更新日期：2026-08-11
+更新日期：2026-08-13
 
 ## 本地数据
 
 MarketSprite 不要求注册账号。以下数据保存在本机：
 
-- 观察列表、标的信息、提醒配置、逐标的目标价格和分钟行情：`~/Library/Application Support/MarketSprite/marketsprite-v3.sqlite`。
+- 观察列表、标的信息、提醒配置、逐标的目标价格和最新交易日行情缓存：`~/Library/Application Support/MarketSprite/marketsprite.sqlite`。
 - 外观、刷新频率、声音、窗口行为和快捷键：macOS 用户偏好域 `io.github.cmy-hhxx.marketsprite`。
 
-v0.1.0 不读取、复制、删除或迁移 `marketsprite-v2.sqlite`。MingyHUD/StockPet 的旧偏好和数据库同样不会被读取或自动删除。
+切换到固定主数据库时，应用可能读取一次指定的旧版主库，在临时数据库中完成转换并验证后再原子替换。固定主库建立并验证后，Application Support 根目录内识别到的旧数据库、早期行情库、人工备份及边车文件会移入 `Backups/legacy-*`；固定主库已存在时，旧文件只归档、不再作为数据源。应用不会自动扫描或打开 `Backups/`，也不读取或自动删除 MingyHUD/StockPet 的旧偏好和数据库。
 
 ## 网络请求
 
@@ -35,10 +35,10 @@ v0.1.0 不读取、复制、删除或迁移 `marketsprite-v2.sqlite`。MingyHUD/
 
 ## 删除数据
 
-应用内可以清空已存分钟行情。若要删除当前数据库数据，请退出应用后，将数据库及可能存在的 `-wal`、`-shm` 同名文件移到废纸篓：
+应用内可以清空已存的最新交易日行情缓存。若要删除当前数据库数据，请退出应用后，将数据库及可能存在的 `-wal`、`-shm` 同名文件移到废纸篓：
 
 ```text
-~/Library/Application Support/MarketSprite/marketsprite-v3.sqlite
+~/Library/Application Support/MarketSprite/marketsprite.sqlite
 ```
 
 偏好设置可以通过终端清理：

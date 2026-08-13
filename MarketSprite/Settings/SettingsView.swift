@@ -26,17 +26,17 @@ struct SettingsView: View {
                 case .watchlist:
                     WatchlistSettingsPage()
                 case .appearance:
-                    ScrollView {
+                    SettingsScrollView {
                         AppearanceSettingsPage()
                             .frame(maxWidth: 640, alignment: .topLeading)
                     }
                 case .alerts:
-                    ScrollView {
+                    SettingsScrollView {
                         AlertsSettingsPage()
                             .frame(maxWidth: 640, alignment: .topLeading)
                     }
                 case .data:
-                    ScrollView {
+                    SettingsScrollView {
                         DataSettingsPage()
                             .frame(maxWidth: 640, alignment: .topLeading)
                     }
@@ -48,6 +48,10 @@ struct SettingsView: View {
             .background(Color(nsColor: .windowBackgroundColor))
         }
         .navigationTitle("\(AppIdentity.displayName) 设置")
+        .toolbar(removing: .sidebarToggle)
+        .toolbarBackground(.visible, for: .windowToolbar)
+        .toolbarBackground(Color(nsColor: .windowBackgroundColor), for: .windowToolbar)
+        .textSelection(.enabled)
     }
 
     private func storageErrorBanner(_ message: String) -> some View {

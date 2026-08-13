@@ -73,11 +73,9 @@ final class MonitorStore: ObservableObject {
         hasStarted = true
 
         do {
-            let instruments = try await database.loadWatchlist(
-                defaultingTo: Instrument.initialWatchlist
-            )
+            let instruments = try await database.loadWatchlist()
             let cachedQuotes = try await database.loadLatestQuotes(for: instruments)
-            let loadedAlertSettings = try await database.loadAlertSettings(for: instruments)
+            let loadedAlertSettings = try await database.loadAlertSettings()
 
             alertConfiguration = loadedAlertSettings.configuration
             priceAlertTargets = loadedAlertSettings.priceTargets
@@ -383,12 +381,12 @@ final class MonitorStore: ObservableObject {
 
     func updatePriceTargets(
         for instrument: Instrument,
-        risingPrice: Double,
-        fallingPrice: Double
+        risingPrice: Double?,
+        fallingPrice: Double?
     ) {
         let sanitized = PriceAlertTargets(
-            risingPrice: risingPrice.isFinite ? max(0, risingPrice) : 0,
-            fallingPrice: fallingPrice.isFinite ? max(0, fallingPrice) : 0
+            risingPrice: risingPrice.flatMap { $0.isFinite && $0 > 0 ? $0 : nil },
+            fallingPrice: fallingPrice.flatMap { $0.isFinite && $0 > 0 ? $0 : nil }
         )
         var updated = priceAlertTargets
         if sanitized.isEnabled {
@@ -446,7 +444,7 @@ final class MonitorStore: ObservableObject {
             recordStorageError(
                 context: .quoteClear,
                 message: String(
-                    format: tr("清空行情库失败：%@"),
+                    format: tr("清空行情缓存失败：%@"),
                     error.localizedDescription
                 )
             )
@@ -752,7 +750,7 @@ final class MonitorStore: ObservableObject {
             recordStorageError(
                 context: .quoteCount,
                 message: String(
-                    format: tr("读取行情库行数失败：%@"),
+                    format: tr("读取缓存分钟数失败：%@"),
                     error.localizedDescription
                 )
             )

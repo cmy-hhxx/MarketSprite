@@ -98,7 +98,7 @@ xcodebuild test \
 ## 数据与隐私
 
 - 标的搜索访问东方财富；分时行情优先访问腾讯并以东方财富备用。
-- 观察列表、标的、提醒配置、目标价格和分钟行情保存在 `~/Library/Application Support/MarketSprite/marketsprite-v3.sqlite`。
+- 观察列表、标的、提醒配置、目标价格和最新交易日行情缓存保存在 `~/Library/Application Support/MarketSprite/marketsprite.sqlite`。
 - 外观、刷新频率、声音、窗口行为和快捷键保存在 macOS 用户偏好中。
 - 应用没有账号系统、云同步、广告、埋点或遥测。
 

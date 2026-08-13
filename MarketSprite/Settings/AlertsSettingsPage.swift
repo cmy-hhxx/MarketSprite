@@ -161,7 +161,7 @@ struct AlertsSettingsPage: View {
     private func priceAlertRow(for instrument: Instrument) -> some View {
         let quote = store.monitoredInstrument(for: instrument.id)?.quote
         let targets = store.priceAlertTargets[instrument.id]
-            ?? PriceAlertTargets(risingPrice: 0, fallingPrice: 0)
+            ?? PriceAlertTargets(risingPrice: nil, fallingPrice: nil)
         let hasLivePrice = (quote?.lastPrice ?? 0) > 0
 
         return VStack(alignment: .leading, spacing: 8) {
@@ -205,14 +205,14 @@ struct AlertsSettingsPage: View {
                     mascotAsset: "BullMascot",
                     instrument: instrument,
                     isRising: true,
-                    value: targets.risingPrice
+                    value: targets.risingPrice ?? 0
                 )
                 priceField(
                     title: "小熊价 ≤",
                     mascotAsset: "BearMascot",
                     instrument: instrument,
                     isRising: false,
-                    value: targets.fallingPrice
+                    value: targets.fallingPrice ?? 0
                 )
             }
             .disabled(!targets.isEnabled)
@@ -244,7 +244,7 @@ struct AlertsSettingsPage: View {
                     get: { value },
                     set: { newValue in
                         let current = store.priceAlertTargets[instrument.id]
-                            ?? PriceAlertTargets(risingPrice: 0, fallingPrice: 0)
+                            ?? PriceAlertTargets(risingPrice: nil, fallingPrice: nil)
                         store.updatePriceTargets(
                             for: instrument,
                             risingPrice: isRising ? newValue : current.risingPrice,

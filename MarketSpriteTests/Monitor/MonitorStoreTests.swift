@@ -189,7 +189,7 @@ final class MonitorStoreTests: XCTestCase {
         try SQLiteTestSupport.execute(
             """
             CREATE TRIGGER reject_one_quote
-            BEFORE INSERT ON quote_sessions
+            BEFORE INSERT ON quote_cache
             WHEN NEW.instrument_id = 'us:REJECTED'
             BEGIN
                 SELECT RAISE(ABORT, 'forced quote persistence failure');
@@ -275,8 +275,8 @@ final class MonitorStoreTests: XCTestCase {
                     fallingThreshold: 3
                 ),
                 priceTargets: [
-                    first.id: PriceAlertTargets(risingPrice: 105, fallingPrice: 0),
-                    second.id: PriceAlertTargets(risingPrice: 105, fallingPrice: 0),
+                    first.id: PriceAlertTargets(risingPrice: 105, fallingPrice: nil),
+                    second.id: PriceAlertTargets(risingPrice: 105, fallingPrice: nil),
                 ]
             )
         )
@@ -295,7 +295,7 @@ final class MonitorStoreTests: XCTestCase {
         store.updatePriceTargets(
             for: first,
             risingPrice: 106,
-            fallingPrice: 0
+            fallingPrice: nil
         )
         await store.refreshAll()
 
@@ -361,7 +361,7 @@ final class MonitorStoreTests: XCTestCase {
                     fallingThreshold: 3
                 ),
                 priceTargets: [
-                    instrument.id: PriceAlertTargets(risingPrice: 100, fallingPrice: 0),
+                    instrument.id: PriceAlertTargets(risingPrice: 100, fallingPrice: nil),
                 ]
             )
         )
@@ -413,7 +413,7 @@ final class MonitorStoreTests: XCTestCase {
                     fallingThreshold: 3
                 ),
                 priceTargets: [
-                    discarded.id: PriceAlertTargets(risingPrice: 100, fallingPrice: 0),
+                    discarded.id: PriceAlertTargets(risingPrice: 100, fallingPrice: nil),
                 ]
             )
         )
@@ -532,7 +532,7 @@ final class MonitorStoreTests: XCTestCase {
         await store.shutdown()
 
         let reopened = try MarketDatabase.open(atPath: path)
-        let settings = try await reopened.loadAlertSettings(for: [instrument])
+        let settings = try await reopened.loadAlertSettings()
         XCTAssertEqual(
             settings,
             AlertSettingsSnapshot(

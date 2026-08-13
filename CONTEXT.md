@@ -28,8 +28,12 @@ _Avoid_: Intraday Point、Trend Point、分时点
 对一个标的当前交易日的一次完整观察，包含最新价、参考价格、分钟线、来源和观察时间。
 _Avoid_: Stock Quote、Live Record、股票行情对象
 
+**行情缓存（Quote Cache）**:
+SQLite 中每个观察标的最多一行、代表最近一次成功保存的交易日快照及其分钟线。行情是可删除、可重建的最新缓存，不是研究档案；清空行情缓存不影响 Watchlist 和提醒。
+_Avoid_: Quote History、行情历史、分钟行情库、行情档案
+
 **观察列表（Watchlist）**:
-用户在桌面行情面板中持续查看的有序、持久化标的集合。观察列表表达注意力，不表达所有权。
+用户在桌面行情面板中持续查看的有序、持久化标的集合。观察列表表达注意力，不表达所有权；移除一个标的等于结束关注关系，其价格目标与行情缓存随之终止本地生命周期。
 _Avoid_: Portfolio、Holdings、Favorites、自选股、持仓
 
 **受监控标的（Monitored Instrument）**:

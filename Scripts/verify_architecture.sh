@@ -64,9 +64,17 @@ if matches=$(rg -n 'DatabaseMigrator|registerMigration|v1_watchlist|v2_quotes|v3
   fail "legacy migration chain remains"
 fi
 
-if matches=$(rg -n 'marketsprite-v2\.sqlite' MarketSprite MarketSpriteTests project.yml); then
+if matches=$(rg -n 'marketsprite-v2\.sqlite' MarketSprite MarketSpriteTests project.yml \
+  | rg -v '^(MarketSprite/Database/|MarketSpriteTests/Database/)'); then
   printf '%s\n' "$matches" >&2
-  fail "legacy v2 database is referenced by active code"
+  fail "legacy database is referenced outside the Database migration path"
+fi
+
+if matches=$(rg -n -i --pcre2 \
+  '(?<![A-Za-z0-9])v[0-9]+(?:\.[0-9]+)*(?![A-Za-z0-9])' \
+  README.md CHANGELOG.md CONTEXT.md docs); then
+  printf '%s\n' "$matches" >&2
+  fail "documentation exposes version-style generation labels"
 fi
 
 if ! rg -q '^\s*- path: MarketSprite$' project.yml; then

@@ -15,8 +15,24 @@ build_number=$(mise exec -- yq -r '.settings.base.CURRENT_PROJECT_VERSION' "$roo
 dmg_path="$dist_dir/MarketSprite-$version.dmg"
 temporary_dmg="$dist_dir/.MarketSprite-$version-$$.dmg"
 mkdir -p "$build_dir" "$dist_dir"
+touch "$build_dir/.metadata_never_index"
 package_dir=$(mktemp -d "$build_dir/MarketSpritePackaging.XXXXXX")
 packaged_app="$package_dir/MarketSprite.app"
+mount_dir=""
+
+cleanup() {
+  if [[ -n "$mount_dir" ]]; then
+    hdiutil detach "$mount_dir" >/dev/null 2>&1 || true
+    rmdir "$mount_dir" >/dev/null 2>&1 || true
+  fi
+  if [[ -d "$package_dir" ]]; then
+    rm -R "$package_dir" >/dev/null 2>&1 || true
+  fi
+  if [[ -f "$temporary_dmg" ]]; then
+    rm "$temporary_dmg" >/dev/null 2>&1 || true
+  fi
+}
+trap cleanup EXIT
 
 cd "$root_dir"
 
@@ -57,7 +73,6 @@ mv -f "$temporary_dmg" "$dmg_path"
 hdiutil verify "$dmg_path"
 
 mount_dir=$(mktemp -d "$build_dir/MarketSpriteMount.XXXXXX")
-trap 'hdiutil detach "$mount_dir" >/dev/null 2>&1 || true' EXIT
 hdiutil attach -readonly -nobrowse -mountpoint "$mount_dir" "$dmg_path" >/dev/null
 codesign --verify --deep --strict --verbose=2 "$mount_dir/MarketSprite.app"
 if [[ "$(readlink "$mount_dir/Applications")" != "/Applications" ]]; then
@@ -77,6 +92,8 @@ if [[ "$packaged_archs" != *arm64* || "$packaged_archs" != *x86_64* ]]; then
   exit 1
 fi
 hdiutil detach "$mount_dir" >/dev/null
+rmdir "$mount_dir"
+mount_dir=""
 
 print "Created $dmg_path"
 shasum -a 256 "$dmg_path"

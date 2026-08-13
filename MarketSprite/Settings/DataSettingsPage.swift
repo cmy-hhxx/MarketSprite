@@ -42,7 +42,7 @@ struct DataSettingsPage: View {
             }
 
             SettingsCard {
-                LabeledContent("分钟行情库行数", value: "\(store.quoteBarCount)")
+                LabeledContent("缓存分钟数", value: "\(store.quoteBarCount)")
                 Divider().opacity(0.5)
                 VStack(alignment: .leading, spacing: 6) {
                     Text(tr("库路径"))
@@ -57,13 +57,13 @@ struct DataSettingsPage: View {
                     confirmClearQuoteDB = true
                 } label: {
                     Label {
-                        Text("清空行情库")
+                        Text("清空行情缓存")
                     } icon: {
                         BrandIcon(systemName: "trash")
                     }
                 }
                 .confirmationDialog(
-                    tr("清空全部已存分钟行情？此操作不可撤销。"),
+                    tr("清空全部行情缓存？此操作不可撤销。"),
                     isPresented: $confirmClearQuoteDB,
                     titleVisibility: .visible
                 ) {

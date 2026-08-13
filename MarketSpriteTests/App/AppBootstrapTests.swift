@@ -7,14 +7,14 @@ final class AppBootstrapTests: XCTestCase {
         let preferences = makePreferences()
         let bootstrap = AppBootstrap(
             preferences: preferences,
-            databasePath: "/tmp/marketsprite-v3.sqlite",
+            databasePath: "/tmp/marketsprite.sqlite",
             databaseFactory: { throw TestError.databaseUnavailable }
         )
 
         await bootstrap.start()
 
         XCTAssertNil(bootstrap.store)
-        XCTAssertEqual(bootstrap.failure?.databasePath, "/tmp/marketsprite-v3.sqlite")
+        XCTAssertEqual(bootstrap.failure?.databasePath, "/tmp/marketsprite.sqlite")
         XCTAssertNotNil(bootstrap.failure?.message)
     }
 
@@ -57,8 +57,9 @@ final class AppBootstrapTests: XCTestCase {
         let database = try MarketDatabase.open(atPath: path)
         try await database.replaceWatchlist(with: [Instrument.initialWatchlist[0]])
         try await database.close()
+        // Break the position invariant so the local restore fails on startup.
         try SQLiteTestSupport.execute(
-            "UPDATE instruments SET namespace = 'invalid';",
+            "UPDATE watchlist SET position = 999;",
             atPath: path
         )
     }

@@ -1,11 +1,11 @@
 # Changelog
 
-## v0.1.0 - 2026-08-12
+## 0.1.0 - 2026-08-12
 
 ### Breaking
 
 - Switched to Swift 6 complete concurrency checking and warnings-as-errors.
-- Replaced the migration chain with one current schema in `marketsprite-v3.sqlite`; v2 data is intentionally neither read nor migrated.
+- Fixed the main database as `marketsprite.sqlite` with an internal structure marker; after the canonical database is established and validated, legacy database files and sidecars are archived under `Backups/` and never used as data sources again.
 
 ### Changed
 

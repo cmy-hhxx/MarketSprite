@@ -199,6 +199,7 @@ final class SettingsWindowKeeper {
 
     private func applyChrome(_ window: NSWindow) {
         window.identifier = NSUserInterfaceItemIdentifier(SettingsWindowPresenter.windowIdentifier)
+        window.titlebarSeparatorStyle = .none
         ensureResizable(window)
         enforceSizeLimits(window)
         window.standardWindowButton(.zoomButton)?.isHidden = false
