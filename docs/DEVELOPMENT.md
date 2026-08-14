@@ -126,6 +126,12 @@ Scripts/build_release_dmg.sh
 
 产物位于 `build/Dist/MarketSprite-<version>.dmg`。DMG 使用固定版本的 `dmgbuild`；`project.yml` 是应用版本、构建号和文件名的唯一来源。
 
+本机安装必须使用统一入口；它会从当前源码制作 DMG、替换 `/Applications/MarketSprite.app`、清除同 bundle id 的构建/用户目录副本，并验证最终只剩一个正式副本：
+
+```bash
+Scripts/install_local_app.sh
+```
+
 需要修改安装背景时，编辑 `Distribution/DMG/generate_background.py`，再重新生成 1×/2× 资源：
 
 ```bash
