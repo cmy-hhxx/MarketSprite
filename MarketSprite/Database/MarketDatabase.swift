@@ -291,43 +291,61 @@ actor MarketDatabase {
     }
 
     func loadLatestQuotes(for instruments: [Instrument]) throws -> [InstrumentID: QuoteSnapshot] {
-        try databaseQueue.read { database in
-            var snapshots: [InstrumentID: QuoteSnapshot] = [:]
+        guard !instruments.isEmpty else { return [:] }
+
+        return try databaseQueue.read { database in
+            var instrumentByRawID: [String: InstrumentID] = [:]
             for instrument in instruments {
-                guard let session = try Row.fetchOne(
-                    database,
-                    sql: """
-                    SELECT session_date, day_open, previous_close, last_price,
-                           quoted_at_ms, received_at_ms, source
-                    FROM quote_cache WHERE instrument_id = ?
-                    """,
-                    arguments: [instrument.id.rawValue]
-                ) else { continue }
-                let source: QuoteSource = try Self.quoteSource(from: session["source"])
-                let rows = try Row.fetchAll(
-                    database,
-                    sql: """
-                    SELECT minute_at_ms, open, close, high, low
-                    FROM minute_bars WHERE instrument_id = ?
-                    ORDER BY minute_at_ms
-                    """,
-                    arguments: [instrument.id.rawValue]
-                )
-                let bars = rows.map { row in
-                    let time: Int64 = row["minute_at_ms"]
-                    return MinuteBar(
+                instrumentByRawID[instrument.id.rawValue] = instrument.id
+            }
+            let placeholders = Array(repeating: "?", count: instrumentByRawID.count).joined(separator: ", ")
+            let arguments = StatementArguments(instrumentByRawID.keys.sorted())
+            let sessions = try Row.fetchAll(
+                database,
+                sql: """
+                SELECT instrument_id, day_open, previous_close, last_price,
+                       quoted_at_ms, received_at_ms, source
+                FROM quote_cache
+                WHERE instrument_id IN (\(placeholders))
+                """,
+                arguments: arguments
+            )
+            let rows = try Row.fetchAll(
+                database,
+                sql: """
+                SELECT instrument_id, minute_at_ms, open, close, high, low
+                FROM minute_bars
+                WHERE instrument_id IN (\(placeholders))
+                ORDER BY instrument_id, minute_at_ms
+                """,
+                arguments: arguments
+            )
+            var barsByInstrumentID: [InstrumentID: [MinuteBar]] = [:]
+            for row in rows {
+                let rawID: String = row["instrument_id"]
+                guard let instrumentID = instrumentByRawID[rawID] else { continue }
+                let time: Int64 = row["minute_at_ms"]
+                barsByInstrumentID[instrumentID, default: []].append(
+                    MinuteBar(
                         time: Self.date(fromMilliseconds: time),
                         open: row["open"],
                         close: row["close"],
                         high: row["high"],
                         low: row["low"]
                     )
-                }
+                )
+            }
+
+            var snapshots: [InstrumentID: QuoteSnapshot] = [:]
+            for session in sessions {
+                let rawID: String = session["instrument_id"]
+                guard let instrumentID = instrumentByRawID[rawID] else { continue }
+                let source: QuoteSource = try Self.quoteSource(from: session["source"])
                 let quotedAt: Int64 = session["quoted_at_ms"]
                 let receivedAt: Int64 = session["received_at_ms"]
-                snapshots[instrument.id] = QuoteSnapshot(
-                    instrumentID: instrument.id,
-                    minuteBars: bars,
+                snapshots[instrumentID] = QuoteSnapshot(
+                    instrumentID: instrumentID,
+                    minuteBars: barsByInstrumentID[instrumentID] ?? [],
                     dayOpen: session["day_open"],
                     previousClose: session["previous_close"],
                     lastPrice: session["last_price"],

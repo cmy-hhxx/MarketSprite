@@ -43,6 +43,7 @@ struct MarketMonitorView: View {
                                     labelOpacity: preferences.labelOpacity,
                                     compact: preferences.compactMode
                                 )
+                                .equatable()
                                 .frame(height: rowHeight)
                             }
                         }

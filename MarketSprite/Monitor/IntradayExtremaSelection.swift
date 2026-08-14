@@ -2,6 +2,11 @@ struct IntradayExtremaSelection: Equatable, Sendable {
     let buyIndex: Int?
     let sellIndex: Int?
 
+    init(buyIndex: Int?, sellIndex: Int?) {
+        self.buyIndex = buyIndex
+        self.sellIndex = sellIndex
+    }
+
     init(closes: [Double]) {
         guard let firstClose = closes.first,
               closes.dropFirst().contains(where: { $0 != firstClose })

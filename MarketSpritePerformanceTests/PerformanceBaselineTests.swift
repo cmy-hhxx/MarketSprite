@@ -1,6 +1,4 @@
-import AppKit
 import os
-import SwiftUI
 import XCTest
 @testable import MarketSprite
 
@@ -54,6 +52,36 @@ final class PerformanceBaselineTests: XCTestCase {
             waitForAsyncOperation {
                 let reopened = try MarketDatabase.open(atPath: path)
                 _ = try await reopened.loadLatestQuotes(for: [instrument])
+                try await reopened.close()
+            }
+        }
+    }
+
+    func testOpeningHundredInstrumentCacheBaseline() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MarketSpritePerformance.\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let instruments = (0..<100).map { index in
+            Instrument(symbol: "C\(index)", name: "缓存基线 \(index)", namespace: .unitedStates)
+        }
+        let path = directory.appendingPathComponent(MarketDatabase.defaultFileName).path
+        let database = try MarketDatabase.open(atPath: path)
+        try await database.replaceWatchlist(with: instruments)
+        for instrument in instruments {
+            try await database.saveQuote(
+                Self.snapshot(for: instrument, barCount: 240, dayOffset: 0),
+                for: instrument
+            )
+        }
+        try await database.close()
+
+        measure(metrics: [XCTClockMetric(), XCTMemoryMetric()], options: options) {
+            waitForAsyncOperation {
+                let reopened = try MarketDatabase.open(atPath: path)
+                let snapshots = try await reopened.loadLatestQuotes(for: instruments)
+                XCTAssertEqual(snapshots.count, instruments.count)
                 try await reopened.close()
             }
         }
@@ -135,37 +163,71 @@ final class PerformanceBaselineTests: XCTestCase {
     }
 }
 
-@MainActor
 final class ChartPerformanceBaselineTests: XCTestCase {
-    func testTwoThousandPointChartRenderBaseline() {
-        let start = Date(timeIntervalSince1970: 1_700_000_000)
-        let bars = (0..<2_000).map { index in
-            let price = 100 + sin(Double(index) / 20)
+    func testTwoThousandPointChartPreparationBaseline() {
+        let bars = Self.chartBars(count: 2_000)
+
+        measure(metrics: [XCTClockMetric(), XCTMemoryMetric()], options: options) {
+            let preparation = IntradayChartPreparation(
+                points: bars,
+                market: .aShare,
+                dayOpen: 100,
+                previousClose: 100,
+                showBSMarkers: true
+            )
+            XCTAssertEqual(preparation.points.count, bars.count)
+        }
+    }
+
+    func testEightVisibleRowsChartPreparationBaseline() {
+        let rows = (0..<8).map { index in
+            Self.chartBars(count: 240, offset: Double(index))
+        }
+
+        measure(metrics: [XCTClockMetric(), XCTMemoryMetric()], options: options) {
+            for bars in rows {
+                let preparation = IntradayChartPreparation(
+                    points: bars,
+                    market: .aShare,
+                    dayOpen: 100,
+                    previousClose: 100,
+                    showBSMarkers: true
+                )
+                XCTAssertEqual(preparation.points.count, bars.count)
+            }
+        }
+    }
+
+    private var options: XCTMeasureOptions {
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+        return options
+    }
+
+    private static func chartBars(count: Int, offset: Double = 0) -> [MinuteBar] {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = Market.aShare.timeZone
+        guard let start = calendar.date(from: DateComponents(
+            timeZone: Market.aShare.timeZone,
+            year: 2026,
+            month: 8,
+            day: 12,
+            hour: 9,
+            minute: 30
+        )) else {
+            preconditionFailure("无法建立图表性能基线时间")
+        }
+        return (0..<count).map { index in
+            let price = 100 + offset + sin(Double(index) / 20)
+            let sessionMinute = index % 240
+            let elapsedMinute = sessionMinute < 120 ? sessionMinute : sessionMinute + 90
             return MinuteBar(
-                time: start.addingTimeInterval(Double(index) * 60),
+                time: start.addingTimeInterval(Double(elapsedMinute) * 60),
                 open: price,
                 close: price,
                 high: price + 0.1,
                 low: price - 0.1
             )
-        }
-        let options = XCTMeasureOptions()
-        options.iterationCount = 3
-
-        measure(metrics: [XCTClockMetric(), XCTMemoryMetric()], options: options) {
-            let renderer = ImageRenderer(
-                content: IntradayChartView(
-                    points: bars,
-                    market: .aShare,
-                    dayOpen: 100,
-                    previousClose: 100,
-                    colorRole: .red,
-                    opacity: 1
-                )
-                .frame(width: 176, height: 48)
-            )
-            renderer.scale = 1
-            XCTAssertNotNil(renderer.cgImage)
         }
     }
 }

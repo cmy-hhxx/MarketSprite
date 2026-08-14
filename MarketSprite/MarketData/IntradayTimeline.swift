@@ -1,12 +1,22 @@
 import Foundation
 
-enum IntradayTimeline {
-    static func progress(at date: Date, market: Market) -> Double? {
-        let minute = minuteOfDay(for: date, market: market)
-        let sessions = sessions(for: market)
-        let totalDuration = sessions.reduce(0.0) { total, session in
+struct IntradayTimeline: Sendable {
+    private let calendar: Calendar
+    private let sessions: [Session]
+    private let totalDuration: Double
+
+    init(market: Market) {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = market.timeZone
+        self.calendar = calendar
+        sessions = Self.sessions(for: market)
+        totalDuration = sessions.reduce(0.0) { total, session in
             total + session.end - session.start
         }
+    }
+
+    func progress(at date: Date) -> Double? {
+        let minute = minuteOfDay(for: date)
         var elapsed = 0.0
 
         for session in sessions {
@@ -22,9 +32,11 @@ enum IntradayTimeline {
         return nil
     }
 
-    private static func minuteOfDay(for date: Date, market: Market) -> Double {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = market.timeZone
+    static func progress(at date: Date, market: Market) -> Double? {
+        IntradayTimeline(market: market).progress(at: date)
+    }
+
+    private func minuteOfDay(for date: Date) -> Double {
         let components = calendar.dateComponents([.hour, .minute, .second], from: date)
         return Double((components.hour ?? 0) * 60 + (components.minute ?? 0))
             + Double(components.second ?? 0) / 60
@@ -47,7 +59,7 @@ enum IntradayTimeline {
         }
     }
 
-    private struct Session {
+    private struct Session: Sendable {
         let start: Double
         let end: Double
     }

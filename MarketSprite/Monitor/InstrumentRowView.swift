@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct InstrumentRowView: View {
+struct InstrumentRowView: View, Equatable {
     let instrument: Instrument
     let quote: QuoteSnapshot?
     let isLoading: Bool
@@ -187,7 +187,7 @@ struct InstrumentRowView: View {
     }
 }
 
-struct IntradayChartView: View {
+struct IntradayChartView: View, Equatable {
     let points: [MinuteBar]
     let market: Market
     let dayOpen: Double
@@ -203,30 +203,26 @@ struct IntradayChartView: View {
     }
 
     var body: some View {
-        let plottedPoints = points.compactMap { point -> (bar: MinuteBar, progress: Double)? in
-            guard let progress = IntradayTimeline.progress(at: point.time, market: market)
-            else { return nil }
-            return (point, progress)
-        }
-        let closes = plottedPoints.map(\.bar.close)
-        let extrema = showBSMarkers
-            ? IntradayExtremaSelection(closes: closes)
-            : nil
+        let preparation = IntradayChartPreparation(
+            points: points,
+            market: market,
+            dayOpen: dayOpen,
+            previousClose: previousClose,
+            showBSMarkers: showBSMarkers
+        )
+        let plottedPoints = preparation.points
+        let closes = plottedPoints.map(\.close)
+        let extrema = preparation.extrema
 
         Canvas { context, size in
             guard plottedPoints.count > 1 else { return }
 
-            let minimum = min(closes.min() ?? dayOpen, dayOpen, previousClose)
-            let maximum = max(closes.max() ?? dayOpen, dayOpen, previousClose)
-            let padding = max((maximum - minimum) * 0.14, max(abs(previousClose) * 0.0008, 0.01))
-            let low = minimum - padding
-            let high = maximum + padding
-            let range = max(high - low, 0.0001)
+            let range = max(preparation.high - preparation.low, 0.0001)
             let lastIndex = plottedPoints.count - 1
 
             func coordinate(progress: Double, price: Double) -> CGPoint {
                 let x = size.width * CGFloat(min(max(progress, 0), 1))
-                let normalized = (price - low) / range
+                let normalized = (price - preparation.low) / range
                 let y = size.height * (1 - CGFloat(normalized))
                 return CGPoint(x: x, y: y)
             }
@@ -280,12 +276,13 @@ struct IntradayChartView: View {
                     segmentRole = .green
                 }
 
-                let steps = subdivisions
+                let previousProgress = plottedPoints[index - 1].progress
+                let currentProgress = plottedPoints[index].progress
+                let horizontalDistance = abs(currentProgress - previousProgress) * Double(size.width)
+                let steps = min(max(Int(horizontalDistance.rounded(.up)), 1), subdivisions)
                 for step in 0...steps {
                     let t = CGFloat(step) / CGFloat(steps)
                     let price = interpolatedClose(from: index - 1, to: index, t: t)
-                    let previousProgress = plottedPoints[index - 1].progress
-                    let currentProgress = plottedPoints[index].progress
                     let progress = previousProgress
                         + (currentProgress - previousProgress) * Double(t)
                     let point = coordinate(progress: progress, price: price)
@@ -320,7 +317,7 @@ struct IntradayChartView: View {
             }
 
             if let last = plottedPoints.last {
-                let point = coordinate(progress: last.progress, price: last.bar.close)
+                let point = coordinate(progress: last.progress, price: last.close)
                 context.fill(
                     Path(ellipseIn: CGRect(x: point.x - 2.0, y: point.y - 2.0, width: 4.0, height: 4.0)),
                     with: .color(segmentRole.color.opacity(opacity))
