@@ -38,9 +38,6 @@ targets:
         INFOPLIST_KEY_NSHighResolutionCapable: YES
         INFOPLIST_KEY_NSHumanReadableCopyright: "仅供个人辅助查看，不构成投资建议"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-    scheme:
-      testTargets:
-        - MarketSpriteTests
   MarketSpriteTests:
     type: bundle.unit-test
     platform: macOS
@@ -64,6 +61,19 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.cmy-hhxx.marketsprite.performance-tests
         GENERATE_INFOPLIST_FILE: YES
 schemes:
+  MarketSprite:
+    build:
+      targets:
+        MarketSprite: all
+    test:
+      targets:
+        - MarketSpriteTests
+      runPostActionsOnFailure: true
+      postActions:
+        - name: Remove MarketSprite app registrations
+          settingsTarget: MarketSprite
+          script: |
+            "${SRCROOT}/Scripts/test.sh" cleanup
   MarketSpritePerformance:
     build:
       targets:
@@ -72,3 +82,9 @@ schemes:
     test:
       targets:
         - MarketSpritePerformanceTests
+      runPostActionsOnFailure: true
+      postActions:
+        - name: Remove MarketSprite app registrations
+          settingsTarget: MarketSprite
+          script: |
+            "${SRCROOT}/Scripts/test.sh" cleanup

@@ -9,6 +9,7 @@ source_packages="$build_dir/SourcePackages"
 product_dir="$derived_data/Build/Products/Release"
 dist_dir="$build_dir/Dist"
 dmg_assets="$root_dir/Distribution/DMG"
+lsregister_path="/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister"
 
 version=$(mise exec -- yq -r '.settings.base.MARKETING_VERSION' "$root_dir/project.yml")
 build_number=$(mise exec -- yq -r '.settings.base.CURRENT_PROJECT_VERSION' "$root_dir/project.yml")
@@ -22,10 +23,12 @@ mount_dir=""
 
 cleanup() {
   if [[ -n "$mount_dir" ]]; then
+    "$lsregister_path" -u "$mount_dir/MarketSprite.app" >/dev/null 2>&1 || true
     hdiutil detach "$mount_dir" >/dev/null 2>&1 || true
     rmdir "$mount_dir" >/dev/null 2>&1 || true
   fi
   if [[ -d "$package_dir" ]]; then
+    "$lsregister_path" -u "$packaged_app" >/dev/null 2>&1 || true
     rm -R "$package_dir" >/dev/null 2>&1 || true
   fi
   if [[ -f "$temporary_dmg" ]]; then
@@ -91,6 +94,7 @@ if [[ "$packaged_archs" != *arm64* || "$packaged_archs" != *x86_64* ]]; then
   print -u2 "Packaged app is not Universal: $packaged_archs"
   exit 1
 fi
+"$lsregister_path" -u "$mount_dir/MarketSprite.app" >/dev/null 2>&1 || true
 hdiutil detach "$mount_dir" >/dev/null
 rmdir "$mount_dir"
 mount_dir=""

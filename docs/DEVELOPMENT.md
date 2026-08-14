@@ -76,29 +76,36 @@ docs/
 - 刷新测试必须验证 single-flight 和全局最多 6 个并发请求；数据库测试必须验证完整快照修正与删除。
 - 纯规则如 `AlertEvaluator` 和 `Watchlist` 直接测试输入与输出。
 
+### 测试与本机应用副本
+
+测试会生成 `.app`，并可能留下构建目录和系统应用注册记录。为避免每次测试后出现多个应用副本，固定遵守以下规则：
+
+日常开发只需要两个入口：`Scripts/test.sh`（测试、性能测试和清理）以及 `Scripts/install_local_app.sh`（本机安装）。`Scripts/verify_architecture.sh` 和 `Scripts/build_release_dmg.sh` 保留为职责明确的内部脚本，分别由测试/打包流程调用；只有需要单独检查架构或单独生成 DMG 时才直接运行。
+
+- 普通测试只能运行 `Scripts/test.sh`。
+- 性能测试只能运行 `Scripts/test.sh performance`。
+- 直接在 Xcode 中点击 `MarketSprite` 或 `MarketSpritePerformance` Scheme 的 Test 也可以，但这两个 Scheme 已配置 Test Post Action，测试结束（包括失败）会自动执行清理。
+- 本机安装只能运行 `Scripts/install_local_app.sh`，它会替换 `/Applications/MarketSprite.app`，清除同 bundle id 的构建/用户目录副本，并校验版本和构建号。
+- 不要直接执行裸 `xcodebuild test`，不要把 `build/`、DerivedData 或 DMG 中的 `.app` 手工复制到其他位置。
+
+如果历史操作已经留下多余应用或系统注册记录，运行一次：
+
+```bash
+Scripts/test.sh cleanup
+```
+
+完成后，正式应用的唯一位置必须是 `/Applications/MarketSprite.app`；测试或构建目录中不应再有受项目管理的 `.app` 副本或残留注册记录。
+
 生成工程并运行完整测试：
 
 ```bash
-mise exec -- xcodegen generate
-
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-xcodebuild test \
-  -project MarketSprite.xcodeproj \
-  -scheme MarketSprite \
-  -destination 'platform=macOS,arch=arm64' \
-  -derivedDataPath build/MarketSpriteDerivedData \
-  CODE_SIGNING_ALLOWED=NO
+Scripts/test.sh
 ```
 
 运行不设绝对耗时门槛的性能基线（10/100 标的刷新、240 根分钟线、252 个交易日替换后的有界缓存和图表渲染）：
 
 ```bash
-xcodebuild test \
-  -project MarketSprite.xcodeproj \
-  -scheme MarketSpritePerformance \
-  -destination 'platform=macOS' \
-  -derivedDataPath build/MarketSpritePerformance \
-  CODE_SIGNING_ALLOWED=NO
+Scripts/test.sh performance
 ```
 
 验证 Release 构建：
@@ -126,7 +133,7 @@ Scripts/build_release_dmg.sh
 
 产物位于 `build/Dist/MarketSprite-<version>.dmg`。DMG 使用固定版本的 `dmgbuild`；`project.yml` 是应用版本、构建号和文件名的唯一来源。
 
-本机安装必须使用统一入口；它会从当前源码制作 DMG、替换 `/Applications/MarketSprite.app`、清除同 bundle id 的构建/用户目录副本，并验证最终只剩一个正式副本：
+本机安装必须使用统一入口；它会从当前源码制作 DMG、替换 `/Applications/MarketSprite.app`、清除同 bundle id 的构建/用户目录副本及系统注册记录，并验证最终只剩一个正式副本：
 
 ```bash
 Scripts/install_local_app.sh

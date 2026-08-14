@@ -6,9 +6,11 @@ root_dir=${0:A:h:h}
 bundle_identifier="io.github.cmy-hhxx.marketsprite"
 installed_app="/Applications/MarketSprite.app"
 version=$(mise exec -- yq -r '.settings.base.MARKETING_VERSION' "$root_dir/project.yml")
+build_number=$(mise exec -- yq -r '.settings.base.CURRENT_PROJECT_VERSION' "$root_dir/project.yml")
 dmg_path="$root_dir/build/Dist/MarketSprite-$version.dmg"
 mount_dir=""
 staged_app="/Applications/.MarketSprite.installing.$$.app"
+lsregister_path="/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister"
 
 app_bundle_identifier() {
   /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$1/Contents/Info.plist" 2>/dev/null || true
@@ -25,26 +27,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-matching_apps() {
-  local candidate
-  local -a candidates
-
-  candidates=(
-    /Applications/*.app(N/)
-    "$HOME"/Applications/*.app(N/)
-    "$HOME"/Desktop/*.app(N/)
-    "$HOME"/Downloads/*.app(N/)
-    "$HOME"/Library/Developer/Xcode/DerivedData/**/Build/Products/**/*.app(N/)
-    "$root_dir"/{build,.build}/**/*.app(N/)
-  )
-
-  for candidate in $candidates; do
-    if [[ "$(app_bundle_identifier "$candidate")" == "$bundle_identifier" ]]; then
-      print -r -- "$candidate"
-    fi
-  done
-}
-
 "$root_dir/Scripts/build_release_dmg.sh"
 
 mount_dir=$(mktemp -d "$root_dir/build/MarketSpriteInstallMount.XXXXXX")
@@ -56,7 +38,11 @@ if [[ "$(app_bundle_identifier "$source_app")" != "$bundle_identifier" ]]; then
   exit 1
 fi
 
-pkill -x MarketSprite >/dev/null 2>&1 || true
+"$lsregister_path" -u "$source_app" >/dev/null 2>&1 || true
+
+for process_name in MarketSprite MingyHUD StockPet; do
+  pkill -x "$process_name" >/dev/null 2>&1 || true
+done
 
 ditto "$source_app" "$staged_app"
 codesign --verify --deep --strict --verbose=2 "$staged_app"
@@ -75,20 +61,12 @@ if [[ -e "$installed_app" ]]; then
 fi
 mv "$staged_app" "$installed_app"
 
-matching_apps | while IFS= read -r candidate; do
-  if [[ "${candidate:A}" != "${installed_app:A}" ]]; then
-    rm -R -- "$candidate"
-    print "Removed duplicate $candidate"
-  fi
-done
-
-remaining_apps=("${(@f)$(matching_apps)}")
-if (( ${#remaining_apps} != 1 )) || [[ "${remaining_apps[1]:A}" != "${installed_app:A}" ]]; then
-  print -u2 "Expected exactly one installed MarketSprite app, found ${#remaining_apps}."
-  printf '%s\n' $remaining_apps >&2
-  exit 1
-fi
+"$root_dir/Scripts/test.sh" cleanup
 
 installed_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$installed_app/Contents/Info.plist")
 installed_build=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$installed_app/Contents/Info.plist")
+if [[ "$installed_version" != "$version" || "$installed_build" != "$build_number" ]]; then
+  print -u2 "Installed app version $installed_version ($installed_build) does not match project.yml $version ($build_number)."
+  exit 1
+fi
 print "Installed MarketSprite $installed_version ($installed_build) at $installed_app"

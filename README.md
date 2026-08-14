@@ -84,16 +84,16 @@ open MarketSprite.xcodeproj
 提交前验证：
 
 ```bash
-Scripts/verify_architecture.sh
+Scripts/test.sh
 
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-xcodebuild test \
-  -project MarketSprite.xcodeproj \
-  -scheme MarketSprite \
-  -destination 'platform=macOS,arch=arm64' \
-  -derivedDataPath build/MarketSpriteDerivedData \
-  CODE_SIGNING_ALLOWED=NO
+# 性能测试
+Scripts/test.sh performance
 ```
+
+日常开发只需要记住两个入口：`Scripts/test.sh` 负责测试、性能测试和清理，`Scripts/install_local_app.sh` 负责本机安装。架构校验和 DMG 打包脚本由这些入口调用；只有需要单独检查或制作发布产物时才直接运行。
+
+> [!IMPORTANT]
+> 测试和安装必须使用项目脚本，不要直接执行裸 `xcodebuild test`，也不要手工复制或拖拽 `.app`。`Scripts/test.sh` 会在测试结束后清理临时应用及系统注册记录；`Scripts/install_local_app.sh` 是唯一的本机安装入口，最终只保留 `/Applications/MarketSprite.app`。如果历史操作已经产生了多余副本，运行 `Scripts/test.sh cleanup`。
 
 ## 数据与隐私
 
