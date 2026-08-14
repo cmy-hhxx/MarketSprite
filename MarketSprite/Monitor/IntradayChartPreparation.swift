@@ -9,14 +9,14 @@ struct IntradayChartPreparation: Equatable, Sendable {
     let points: [IntradayChartPoint]
     let low: Double
     let high: Double
-    let extrema: IntradayExtremaSelection?
+    let reviewMarkers: IntradayReviewMarkerSelection?
 
     init(
         points sourcePoints: [MinuteBar],
         market: Market,
         dayOpen: Double,
         previousClose: Double,
-        showBSMarkers: Bool
+        showReviewMarkers: Bool
     ) {
         let timeline = IntradayTimeline(market: market)
         var points: [IntradayChartPoint] = []
@@ -24,13 +24,13 @@ struct IntradayChartPreparation: Equatable, Sendable {
 
         var minimum = min(dayOpen, previousClose)
         var maximum = max(dayOpen, previousClose)
-        var firstClose: Double?
-        var lowestClose = 0.0
-        var highestClose = 0.0
-        var buyIndex = 0
-        var sellIndex = 0
-        var hasVariation = false
-        var hasLaterHigherClose = false
+        var lowestClose: Double?
+        var highestClose: Double?
+        var lowestIndex = 0
+        var highestIndex = 0
+        var bestProfit = 0.0
+        var bestBuyIndex: Int?
+        var bestSellIndex: Int?
 
         for point in sourcePoints {
             guard let progress = timeline.progress(at: point.time) else { continue }
@@ -41,25 +41,27 @@ struct IntradayChartPreparation: Equatable, Sendable {
             minimum = min(minimum, close)
             maximum = max(maximum, close)
 
-            if let firstClose {
-                hasVariation = hasVariation || close != firstClose
-            } else {
-                firstClose = close
+            guard showReviewMarkers else { continue }
+
+            guard let currentLowestClose = lowestClose else {
                 lowestClose = close
                 highestClose = close
                 continue
             }
 
-            if close < lowestClose {
-                lowestClose = close
-                buyIndex = index
-                hasLaterHigherClose = false
-            } else if close > lowestClose {
-                hasLaterHigherClose = true
+            let profit = close - currentLowestClose
+            if profit > bestProfit {
+                bestProfit = profit
+                bestBuyIndex = lowestIndex
+                bestSellIndex = index
             }
-            if close > highestClose {
+            if close < currentLowestClose {
+                lowestClose = close
+                lowestIndex = index
+            }
+            if let currentHighestClose = highestClose, close > currentHighestClose {
                 highestClose = close
-                sellIndex = index
+                highestIndex = index
             }
         }
 
@@ -70,13 +72,30 @@ struct IntradayChartPreparation: Equatable, Sendable {
         )
         low = minimum - padding
         high = maximum + padding
-        if showBSMarkers, hasVariation {
-            extrema = IntradayExtremaSelection(
-                buyIndex: hasLaterHigherClose ? buyIndex : nil,
-                sellIndex: sellIndex
+        guard showReviewMarkers,
+              points.count > 1,
+              let finalClose = points.last?.close,
+              highestClose != nil
+        else {
+            reviewMarkers = nil
+            return
+        }
+
+        if finalClose > previousClose,
+           bestProfit > 0,
+           let bestBuyIndex,
+           let bestSellIndex {
+            reviewMarkers = IntradayReviewMarkerSelection(
+                buyIndex: bestBuyIndex,
+                sellIndex: bestSellIndex
+            )
+        } else if finalClose != previousClose {
+            reviewMarkers = IntradayReviewMarkerSelection(
+                buyIndex: nil,
+                sellIndex: highestIndex
             )
         } else {
-            extrema = nil
+            reviewMarkers = nil
         }
     }
 }

@@ -14,7 +14,7 @@ enum TradingCalendar {
         )
     }
 
-    static func shouldShowAShareExtrema(
+    static func shouldShowAShareReviewMarkers(
         for quote: QuoteSnapshot,
         now: Date = Date()
     ) -> Bool {

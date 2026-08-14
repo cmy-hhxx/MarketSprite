@@ -173,7 +173,7 @@ final class ChartPerformanceBaselineTests: XCTestCase {
                 market: .aShare,
                 dayOpen: 100,
                 previousClose: 100,
-                showBSMarkers: true
+                showReviewMarkers: true
             )
             XCTAssertEqual(preparation.points.count, bars.count)
         }
@@ -191,7 +191,7 @@ final class ChartPerformanceBaselineTests: XCTestCase {
                     market: .aShare,
                     dayOpen: 100,
                     previousClose: 100,
-                    showBSMarkers: true
+                    showReviewMarkers: true
                 )
                 XCTAssertEqual(preparation.points.count, bars.count)
             }
