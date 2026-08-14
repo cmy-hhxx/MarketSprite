@@ -167,7 +167,6 @@ final class SettingsWindowKeeper {
 
     private weak var window: NSWindow?
     private var styleObservation: NSKeyValueObservation?
-    private var mouseUpMonitor: Any?
 
     func attach(_ window: NSWindow) {
         if self.window !== window {
@@ -178,7 +177,6 @@ final class SettingsWindowKeeper {
                     self?.ensureResizable(win)
                 }
             }
-            installMouseUpMonitorIfNeeded()
             applyChrome(window)
         } else {
             ensureResizable(window)
@@ -186,20 +184,12 @@ final class SettingsWindowKeeper {
         }
     }
 
-    private func installMouseUpMonitorIfNeeded() {
-        guard mouseUpMonitor == nil else { return }
-        mouseUpMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseUp) { [weak self] event in
-            Task { @MainActor in
-                guard let self, let window = self.window else { return }
-                self.applyChrome(window)
-            }
-            return event
-        }
-    }
-
     private func applyChrome(_ window: NSWindow) {
         window.identifier = NSUserInterfaceItemIdentifier(SettingsWindowPresenter.windowIdentifier)
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
         window.titlebarSeparatorStyle = .none
+        window.isMovableByWindowBackground = true
         ensureResizable(window)
         enforceSizeLimits(window)
         window.standardWindowButton(.zoomButton)?.isHidden = false

@@ -97,6 +97,7 @@ struct MarketSpriteApp: App {
             width: SettingsWindowPresenter.defaultSize.width,
             height: SettingsWindowPresenter.defaultSize.height
         )
+        .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentMinSize)
     }
 }

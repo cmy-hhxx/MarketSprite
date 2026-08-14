@@ -1,67 +1,115 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @EnvironmentObject private var store: MonitorStore
     @State private var selectedSection: SettingsSection = .watchlist
+    @State private var hasLoadedQuoteBarCount = false
 
     var body: some View {
-        NavigationSplitView {
-            List(SettingsSection.allCases, selection: $selectedSection) { section in
-                Label {
-                    Text(section.title)
-                } icon: {
-                    BrandIcon(systemName: section.icon)
-                }
-                    .tag(section)
-            }
-            .listStyle(.sidebar)
-            .navigationSplitViewColumnWidth(min: 150, ideal: 168, max: 190)
-        } detail: {
-            VStack(alignment: .leading, spacing: 12) {
-                if let storageError = store.storageError {
-                    storageErrorBanner(storageError)
-                }
+        HStack(spacing: 0) {
+            SettingsSidebar(selectedSection: $selectedSection)
+            Divider()
+                .overlay(Color.primary.opacity(0.06))
 
-                switch selectedSection {
-                case .watchlist:
-                    WatchlistSettingsPage()
-                case .appearance:
-                    SettingsScrollView {
+            SettingsScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    SettingsPageHeader(section: selectedSection)
+                    SettingsStorageErrorBanner()
+
+                    switch selectedSection {
+                    case .watchlist:
+                        WatchlistSettingsPage()
+                    case .appearance:
                         AppearanceSettingsPage()
-                            .frame(maxWidth: 640, alignment: .topLeading)
-                    }
-                case .alerts:
-                    SettingsScrollView {
+                    case .alerts:
                         AlertsSettingsPage()
-                            .frame(maxWidth: 640, alignment: .topLeading)
-                    }
-                case .data:
-                    SettingsScrollView {
-                        DataSettingsPage()
-                            .frame(maxWidth: 640, alignment: .topLeading)
+                    case .data:
+                        DataSettingsPage(hasLoadedQuoteBarCount: $hasLoadedQuoteBarCount)
                     }
                 }
             }
-            .padding(.horizontal, 28)
-            .padding(.vertical, 22)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(Color(nsColor: .windowBackgroundColor))
         }
-        .navigationTitle("\(AppIdentity.displayName) 设置")
-        .toolbar(removing: .sidebarToggle)
-        .toolbarBackground(.visible, for: .windowToolbar)
-        .toolbarBackground(Color(nsColor: .windowBackgroundColor), for: .windowToolbar)
         .textSelection(.enabled)
     }
+}
 
-    private func storageErrorBanner(_ message: String) -> some View {
+private struct SettingsSidebar: View {
+    @Binding var selectedSection: SettingsSection
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            ForEach(SettingsSection.allCases) { section in
+                Button {
+                    selectedSection = section
+                } label: {
+                    Label {
+                        Text(section.title)
+                            .font(.body.weight(.semibold))
+                    } icon: {
+                        BrandIcon(
+                            systemName: section.icon,
+                            tint: selectedSection == section ? BrandPalette.mint : .secondary
+                        )
+                    }
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background {
+                        if selectedSection == section {
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(BrandPalette.mint.opacity(0.22))
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.top, 10)
+        .padding(.horizontal, 10)
+        .frame(
+            minWidth: 184,
+            idealWidth: 184,
+            maxWidth: 184,
+            maxHeight: .infinity
+        )
+        .background {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .ignoresSafeArea(edges: .top)
+        }
+    }
+}
+
+private struct SettingsPageHeader: View {
+    let section: SettingsSection
+
+    var body: some View {
+        HStack(spacing: 12) {
+            BrandIcon(systemName: section.icon, size: 18, tint: BrandPalette.mint)
+            Text(section.title)
+                .font(.title2.weight(.semibold))
+            Spacer(minLength: 0)
+        }
+        .accessibilityAddTraits(.isHeader)
+    }
+}
+
+private struct SettingsStorageErrorBanner: View {
+    @EnvironmentObject private var store: MonitorStore
+
+    var body: some View {
+        if let message = store.storageError {
         HStack(alignment: .top, spacing: 8) {
             Label {
                 Text(message)
             } icon: {
                 BrandIcon(systemName: "externaldrive.badge.exclamationmark")
             }
-                .font(.caption)
+                .font(.callout)
                 .foregroundStyle(.orange)
                 .fixedSize(horizontal: false, vertical: true)
                 .textSelection(.enabled)
@@ -74,8 +122,9 @@ struct SettingsView: View {
             .buttonStyle(.plain)
             .help(tr("关闭"))
         }
-        .padding(10)
-        .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+            .padding(10)
+            .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+        }
     }
 }
 
