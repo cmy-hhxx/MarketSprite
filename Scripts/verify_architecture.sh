@@ -81,20 +81,20 @@ if ! rg -q '^\s*- path: MarketSprite$' project.yml; then
   fail "project.yml does not use MarketSprite as its source root"
 fi
 
-marketing_version=$(yq -r '.settings.base.MARKETING_VERSION' project.yml)
+marketing_version=$(mise exec -- yq -r '.settings.base.MARKETING_VERSION' project.yml)
 if [[ ! "$marketing_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   fail "project.yml has an invalid MARKETING_VERSION"
 fi
 
-if [[ "$(yq -r '.settings.base.SWIFT_VERSION' project.yml)" != "6.0" ]]; then
+if [[ "$(mise exec -- yq -r '.settings.base.SWIFT_VERSION' project.yml)" != "6.0" ]]; then
   fail "project.yml does not use Swift 6"
 fi
 
-if [[ "$(yq -r '.settings.base.SWIFT_STRICT_CONCURRENCY' project.yml)" != "complete" ]]; then
+if [[ "$(mise exec -- yq -r '.settings.base.SWIFT_STRICT_CONCURRENCY' project.yml)" != "complete" ]]; then
   fail "project.yml does not enable complete concurrency checking"
 fi
 
-if [[ "$(yq -r '.settings.base.SWIFT_TREAT_WARNINGS_AS_ERRORS' project.yml)" != "YES" ]]; then
+if [[ "$(mise exec -- yq -r '.settings.base.SWIFT_TREAT_WARNINGS_AS_ERRORS' project.yml)" != "YES" ]]; then
   fail "project.yml does not treat Swift warnings as errors"
 fi
 

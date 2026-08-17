@@ -25,10 +25,10 @@ struct SettingsGroup<Content: View, Action: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 7) {
             HStack(alignment: .firstTextBaseline) {
                 Text(tr(title))
-                    .font(.headline.weight(.semibold))
+                    .font(.system(size: 12.5, weight: .semibold))
 
                 Spacer(minLength: 12)
 
@@ -49,19 +49,7 @@ struct SettingsCard<Content: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             content
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 2)
-        .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.72))
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(
-                    Color(nsColor: .separatorColor).opacity(0.45),
-                    lineWidth: 1
-                )
-        }
+        .padding(.horizontal, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
@@ -71,15 +59,15 @@ struct SettingsRow<Content: View>: View {
 
     var body: some View {
         content
-            .frame(maxWidth: .infinity, minHeight: 22, alignment: .leading)
-            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, minHeight: 26, alignment: .leading)
+            .padding(.vertical, 6)
     }
 }
 
 struct SettingsRowDivider: View {
     var body: some View {
         Divider()
-            .overlay(Color.primary.opacity(0.08))
+            .overlay(Color.primary.opacity(0.12))
     }
 }
 
@@ -88,13 +76,16 @@ struct SettingsToggleRow<Label: View>: View {
     @ViewBuilder let label: Label
 
     var body: some View {
-        HStack {
-            label
-            Spacer(minLength: 16)
-            Toggle("", isOn: $isOn)
-                .labelsHidden()
-                .toggleStyle(.switch)
+        Toggle(isOn: $isOn) {
+            HStack(spacing: 0) {
+                label
+                Spacer(minLength: 20)
+            }
         }
+        .toggleStyle(.switch)
+        .tint(BrandPalette.interfaceAccent)
+        .controlSize(.small)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -108,11 +99,11 @@ struct SettingsScrollView<Content: View>: View {
     var body: some View {
         ScrollView(.vertical) {
             content
-                .frame(maxWidth: 620, alignment: .leading)
+                .frame(maxWidth: 640, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.horizontal, 24)
-                .padding(.top, 24)
-                .padding(.bottom, 32)
+                .padding(.horizontal, 22)
+                .padding(.top, 20)
+                .padding(.bottom, 28)
         }
         .scrollIndicators(.automatic)
     }
@@ -132,9 +123,9 @@ struct MarketBadge: View {
 
     private var badgeColor: Color {
         switch market {
-        case .aShare: .red
+        case .aShare: BrandPalette.coralInk
         case .hongKong: .orange
-        case .unitedStates: .blue
+        case .unitedStates: BrandPalette.interfaceAccent
         }
     }
 }

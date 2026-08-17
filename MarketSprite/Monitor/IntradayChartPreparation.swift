@@ -5,6 +5,25 @@ struct IntradayChartPoint: Equatable, Sendable {
     let close: Double
 }
 
+enum IntradaySegmentColoring {
+    static func roles(
+        closes: [Double],
+        initialRole: MarketColorRole
+    ) -> [MarketColorRole] {
+        guard closes.count > 1 else { return [] }
+
+        var currentRole = initialRole
+        return zip(closes, closes.dropFirst()).map { previous, current in
+            if current > previous {
+                currentRole = .red
+            } else if current < previous {
+                currentRole = .green
+            }
+            return currentRole
+        }
+    }
+}
+
 struct IntradayChartPreparation: Equatable, Sendable {
     let points: [IntradayChartPoint]
     let low: Double

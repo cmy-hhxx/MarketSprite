@@ -8,10 +8,11 @@ struct DataSettingsPage: View {
     @State private var confirmClearQuoteDB = false
     @State private var isRefreshing = false
     @State private var didCopyDatabasePath = false
+    @State private var showsStorageDiagnostics = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            SettingsCard {
+            SettingsGroup("行情状态") {
                 SettingsRow {
                     HStack(spacing: 16) {
                         Label("刷新频率", systemImage: "arrow.clockwise")
@@ -29,27 +30,28 @@ struct DataSettingsPage: View {
                 }
                 SettingsRowDivider()
                 SettingsRow {
-                    HStack(spacing: 12) {
-                        Text("数据源")
+                    HStack(spacing: 16) {
+                        Label("数据源", systemImage: "antenna.radiowaves.left.and.right")
+                        Spacer(minLength: 16)
                         Text(tr("腾讯分时 · 东方财富备用"))
                             .foregroundStyle(.secondary)
                     }
-                    .frame(maxWidth: .infinity, alignment: .center)
                 }
                 SettingsRowDivider()
                 SettingsRow {
-                    HStack(spacing: 12) {
-                        Text("最近刷新")
+                    HStack(spacing: 16) {
+                        Label("最近刷新", systemImage: "clock")
+                        Spacer(minLength: 16)
                         Text(lastRefreshText)
                             .foregroundStyle(.secondary)
                             .help(lastRefreshFullText)
                     }
-                    .frame(maxWidth: .infinity, alignment: .center)
                 }
                 SettingsRowDivider()
                 SettingsRow {
-                    HStack(spacing: 12) {
-                        Text("行情刷新")
+                    HStack(spacing: 16) {
+                        Label("行情刷新", systemImage: "arrow.clockwise")
+                        Spacer(minLength: 16)
 
                         Button {
                             refreshAll()
@@ -68,64 +70,71 @@ struct DataSettingsPage: View {
                         .controlSize(.small)
                         .disabled(isRefreshing)
                     }
-                    .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
 
-            SettingsGroup("本地缓存") {
-                SettingsRow {
-                    HStack(spacing: 12) {
-                        Text("缓存分钟数")
-                        Text("\(store.quoteBarCount.formatted()) 分钟")
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .center)
-                }
-                SettingsRowDivider()
-                SettingsRow {
-                    VStack(spacing: 4) {
-                        HStack(spacing: 6) {
-                            Text("数据库路径")
-                            if didCopyDatabasePath {
-                                Label("已复制", systemImage: "checkmark")
-                                    .font(.caption.weight(.medium))
-                                    .foregroundStyle(.green)
+            SettingsGroup("存储与诊断") {
+                DisclosureGroup(isExpanded: $showsStorageDiagnostics) {
+                    VStack(spacing: 0) {
+                        SettingsRow {
+                            HStack(spacing: 16) {
+                                Label("缓存分钟数", systemImage: "clock.arrow.circlepath")
+                                Spacer(minLength: 16)
+                                Text("\(store.quoteBarCount.formatted()) 分钟")
+                                    .monospacedDigit()
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        SettingsRowDivider()
+                        SettingsRow {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 6) {
+                                    Text("数据库路径")
+                                    if didCopyDatabasePath {
+                                        Label("已复制", systemImage: "checkmark")
+                                            .font(.caption.weight(.medium))
+                                            .foregroundStyle(BrandPalette.mintInk)
+                                    }
+                                }
+                                databasePathText
                             }
                         }
-                        databasePathText
-                            .frame(minWidth: 0, maxWidth: 400, alignment: .center)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .center)
-                }
-                SettingsRowDivider()
-                SettingsRow {
-                    HStack(spacing: 12) {
-                        Text("清空行情缓存")
+                        SettingsRowDivider()
+                        SettingsRow {
+                            HStack(spacing: 16) {
+                                Label("清空行情缓存", systemImage: "trash")
+                                Spacer(minLength: 16)
 
-                        Button(role: .destructive) {
-                            confirmClearQuoteDB = true
-                        } label: {
-                            Label("清空…", systemImage: "trash")
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(.red)
-                        .confirmationDialog(
-                            tr("清空全部行情缓存？此操作不可撤销。"),
-                            isPresented: $confirmClearQuoteDB,
-                            titleVisibility: .visible
-                        ) {
-                            Button(tr("清空"), role: .destructive) {
-                                Task {
-                                    await store.clearQuoteHistory()
-                                    await store.refreshQuoteBarCount()
+                                Button(role: .destructive) {
+                                    confirmClearQuoteDB = true
+                                } label: {
+                                    Label("清空…", systemImage: "trash")
+                                }
+                                .buttonStyle(.bordered)
+                                .tint(.red)
+                                .confirmationDialog(
+                                    tr("清空全部行情缓存？此操作不可撤销。"),
+                                    isPresented: $confirmClearQuoteDB,
+                                    titleVisibility: .visible
+                                ) {
+                                    Button(tr("清空"), role: .destructive) {
+                                        Task {
+                                            await store.clearQuoteHistory()
+                                            await store.refreshQuoteBarCount()
+                                        }
+                                    }
+                                    Button(tr("取消"), role: .cancel) {}
                                 }
                             }
-                            Button(tr("取消"), role: .cancel) {}
                         }
                     }
-                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.top, 6)
+                } label: {
+                    Label("显示缓存、路径与清理操作", systemImage: "externaldrive")
+                        .foregroundStyle(.secondary)
                 }
+                .padding(.vertical, 10)
             }
         }
         .task {
@@ -144,6 +153,7 @@ struct DataSettingsPage: View {
                 calendar: .current,
                 timeZone: .current
             )
+            .locale(Locale(identifier: "zh_CN"))
         )
     }
 
@@ -156,6 +166,7 @@ struct DataSettingsPage: View {
                 calendar: .current,
                 timeZone: .current
             )
+            .locale(Locale(identifier: "zh_CN"))
         )
     }
 
@@ -168,7 +179,7 @@ struct DataSettingsPage: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
-                .multilineTextAlignment(.center)
+                .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(.plain)

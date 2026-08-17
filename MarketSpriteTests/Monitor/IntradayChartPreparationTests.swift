@@ -2,6 +2,16 @@ import XCTest
 @testable import MarketSprite
 
 final class IntradayChartPreparationTests: XCTestCase {
+    func testSegmentColorsReflectEachLocalPriceMove() {
+        XCTAssertEqual(
+            IntradaySegmentColoring.roles(
+                closes: [10, 11, 9, 9, 10],
+                initialRole: .green
+            ),
+            [.red, .green, .green, .red]
+        )
+    }
+
     func testFiltersLunchBreakAndSelectsOnlySellForADownCloseWithRebound() throws {
         let preparation = IntradayChartPreparation(
             points: [

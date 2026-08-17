@@ -61,6 +61,8 @@ if [[ -e "$installed_app" ]]; then
 fi
 mv "$staged_app" "$installed_app"
 
+"$lsregister_path" -f -R "$installed_app" >/dev/null 2>&1 || true
+
 "$root_dir/Scripts/test.sh" cleanup
 
 installed_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$installed_app/Contents/Info.plist")

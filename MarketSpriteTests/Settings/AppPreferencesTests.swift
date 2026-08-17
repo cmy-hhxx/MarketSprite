@@ -11,7 +11,7 @@ final class AppPreferencesTests: XCTestCase {
 
         let preferences = AppPreferences(defaults: defaults)
         preferences.lineOpacity = 0.8
-        preferences.labelOpacity = 0.7
+        preferences.labelOpacity = 0.8
         preferences.backgroundOpacity = 0.2
         preferences.refreshInterval = 30
         preferences.clickThrough = true
@@ -35,7 +35,7 @@ final class AppPreferencesTests: XCTestCase {
 
         let reloaded = AppPreferences(defaults: defaults)
         XCTAssertEqual(reloaded.lineOpacity, 0.8)
-        XCTAssertEqual(reloaded.labelOpacity, 0.7)
+        XCTAssertEqual(reloaded.labelOpacity, 0.8)
         XCTAssertEqual(reloaded.backgroundOpacity, 0.2)
         XCTAssertEqual(reloaded.refreshInterval, 30)
         XCTAssertTrue(reloaded.clickThrough)

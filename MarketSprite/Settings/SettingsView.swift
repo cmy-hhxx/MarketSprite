@@ -8,10 +8,10 @@ struct SettingsView: View {
         HStack(spacing: 0) {
             SettingsSidebar(selectedSection: $selectedSection)
             Divider()
-                .overlay(Color.primary.opacity(0.06))
+                .overlay(BrandPalette.interfaceAccent.opacity(0.14))
 
             SettingsScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 20) {
                     SettingsPageHeader(section: selectedSection)
                     SettingsStorageErrorBanner()
 
@@ -28,8 +28,22 @@ struct SettingsView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(Color(nsColor: .windowBackgroundColor))
+            .background {
+                Color(nsColor: .windowBackgroundColor)
+                    .overlay {
+                        LinearGradient(
+                            colors: [
+                                BrandPalette.interfaceAccent.opacity(0.035),
+                                BrandPalette.mint.opacity(0.012),
+                                Color.clear,
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    }
+            }
         }
+        .font(.system(size: 12.5))
         .textSelection(.enabled)
     }
 }
@@ -45,21 +59,21 @@ private struct SettingsSidebar: View {
                 } label: {
                     Label {
                         Text(section.title)
-                            .font(.body.weight(.semibold))
+                            .font(.system(size: 13, weight: .semibold))
                     } icon: {
                         BrandIcon(
                             systemName: section.icon,
-                            tint: selectedSection == section ? BrandPalette.mint : .secondary
+                            tint: selectedSection == section ? BrandPalette.interfaceAccent : .secondary
                         )
                     }
                     .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 7)
                     .background {
                         if selectedSection == section {
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(BrandPalette.mint.opacity(0.22))
+                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .fill(BrandPalette.interfaceAccent.opacity(0.13))
                         }
                     }
                 }
@@ -68,7 +82,7 @@ private struct SettingsSidebar: View {
 
             Spacer(minLength: 0)
         }
-        .padding(.top, 10)
+        .padding(.top, 12)
         .padding(.horizontal, 10)
         .frame(
             minWidth: 184,
@@ -77,9 +91,11 @@ private struct SettingsSidebar: View {
             maxHeight: .infinity
         )
         .background {
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .ignoresSafeArea(edges: .top)
+            ZStack {
+                Color(nsColor: .controlBackgroundColor)
+                BrandPalette.interfaceAccent.opacity(0.045)
+            }
+            .ignoresSafeArea(edges: .top)
         }
     }
 }
@@ -88,10 +104,10 @@ private struct SettingsPageHeader: View {
     let section: SettingsSection
 
     var body: some View {
-        HStack(spacing: 12) {
-            BrandIcon(systemName: section.icon, size: 18, tint: BrandPalette.mint)
+        HStack(spacing: 10) {
+            BrandIcon(systemName: section.icon, size: 16, tint: BrandPalette.interfaceAccent)
             Text(section.title)
-                .font(.title2.weight(.semibold))
+                .font(.system(size: 18, weight: .semibold))
             Spacer(minLength: 0)
         }
         .accessibilityAddTraits(.isHeader)
@@ -121,6 +137,7 @@ private struct SettingsStorageErrorBanner: View {
             }
             .buttonStyle(.plain)
             .help(tr("关闭"))
+            .accessibilityLabel(tr("关闭存储错误"))
         }
             .padding(10)
             .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))

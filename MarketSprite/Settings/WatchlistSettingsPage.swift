@@ -19,6 +19,7 @@ private struct WatchlistSettingsContent: View {
     @State private var jsonImportMessage: String?
     @State private var showJSONImport = false
     @State private var confirmJSONImport = false
+    @State private var removalCandidate: Instrument?
 
     init(search: @escaping (String) async throws -> [Instrument]) {
         _searchModel = StateObject(
@@ -93,7 +94,7 @@ private struct WatchlistSettingsContent: View {
                     fillJSONExample(copyToPasteboard: false, announce: false)
                     showJSONImport = true
                 } label: {
-                    Label("导入", systemImage: "square.and.arrow.down")
+                    Label("JSON…", systemImage: "curlybraces.square")
                 }
                 .buttonStyle(.borderless)
             }) {
@@ -113,6 +114,29 @@ private struct WatchlistSettingsContent: View {
         .sheet(isPresented: $showJSONImport) {
             jsonImportSheet
         }
+        .confirmationDialog(
+            "移除观察标的？",
+            isPresented: Binding(
+                get: { removalCandidate != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        removalCandidate = nil
+                    }
+                }
+            ),
+            titleVisibility: .visible,
+            presenting: removalCandidate
+        ) { instrument in
+            Button("移除 \(instrument.name)", role: .destructive) {
+                Task { await store.remove(instrument) }
+            }
+            Button("取消", role: .cancel) {}
+        } message: { instrument in
+            Text("移除后会同时删除该标的的价格目标和行情缓存，此操作不可撤销。")
+        }
+        .onChange(of: searchModel.query) { _, _ in
+            addMessage = nil
+        }
         .onDisappear {
             searchModel.cancel()
         }
@@ -130,11 +154,12 @@ private struct WatchlistSettingsContent: View {
                 Button {
                     searchModel.query = ""
                 } label: {
-                    Image(systemName: "xmark.circle.fill")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .help(tr("清除搜索"))
+                Image(systemName: "xmark.circle.fill")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help(tr("清除搜索"))
+            .accessibilityLabel(tr("清除搜索"))
             }
 
             Button {
@@ -216,16 +241,18 @@ private struct WatchlistSettingsContent: View {
                         .foregroundStyle(
                             instrument.market.colorRole(
                                 isRising: quote.changePercent >= 0
-                            ).color
+                            ).inkColor
                         )
                     }
                     Button(role: .destructive) {
-                        Task { await store.remove(instrument) }
+                        removalCandidate = instrument
                     } label: {
                         BrandIcon(systemName: "trash", size: 11, showsBackground: false)
                     }
                     .buttonStyle(.borderless)
                     .help(tr("删除"))
+                    .accessibilityLabel(tr("移除 \(instrument.name)"))
+                    .accessibilityHint(tr("会同时删除价格目标和行情缓存"))
                     .disabled(store.isWatchlistMutating)
                 }
                 .contentShape(Rectangle())
@@ -268,7 +295,7 @@ private struct WatchlistSettingsContent: View {
     private var jsonImportSheet: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text(tr("通过 JSON 导入"))
+                Text(tr("替换观察列表（JSON）"))
                     .font(.title2.bold())
                 Spacer()
                 Button(tr("关闭")) {
@@ -283,10 +310,10 @@ private struct WatchlistSettingsContent: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 8) {
-                Button("填入当前示例") {
+                Button("填入当前列表示例") {
                     fillJSONExample(copyToPasteboard: false, announce: true)
                 }
-                Button("复制到剪贴板") {
+                Button("复制当前列表示例") {
                     fillJSONExample(copyToPasteboard: true, announce: true)
                 }
                 Spacer()
@@ -364,7 +391,12 @@ private struct WatchlistSettingsContent: View {
             if let error {
                 addMessage = error
             } else {
-                addMessage = String(format: tr("已把 %@ 放到桌面"), instrument.name)
+                let message = String(format: tr("已把 %@ 放到桌面"), instrument.name)
+                addMessage = message
+                try? await Task.sleep(for: .seconds(3))
+                if addMessage == message {
+                    addMessage = nil
+                }
             }
         }
     }

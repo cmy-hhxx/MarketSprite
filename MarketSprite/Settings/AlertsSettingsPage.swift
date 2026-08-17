@@ -31,7 +31,7 @@ struct AlertsSettingsPage: View {
                                     title: "上涨超过",
                                     mascotAsset: "BullMascot",
                                     value: alertConfigurationBinding(\.risingThreshold),
-                                    color: .red
+                                    color: BrandPalette.coral
                                 )
                                 Divider()
                                     .overlay(Color.primary.opacity(0.06))
@@ -40,7 +40,7 @@ struct AlertsSettingsPage: View {
                                     title: "下跌超过",
                                     mascotAsset: "BearMascot",
                                     value: alertConfigurationBinding(\.fallingThreshold),
-                                    color: .green
+                                    color: BrandPalette.mint
                                 )
                             }
                         } else {
@@ -242,6 +242,15 @@ struct AlertsSettingsPage: View {
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .disabled(!hasLivePrice && !targets.isEnabled)
+                .accessibilityLabel(tr("\(instrument.name) 目标价格提醒"))
+                .accessibilityValue(
+                    targets.isEnabled ? tr("已开启") : tr("已关闭")
+                )
+                .accessibilityHint(
+                    hasLivePrice
+                        ? tr("开启后可设置上涨和下跌目标价格")
+                        : tr("等待实时价格后才能开启")
+                )
             }
 
             ViewThatFits(in: .horizontal) {

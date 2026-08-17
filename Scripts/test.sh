@@ -51,12 +51,21 @@ matching_apps() {
 
   for root in $top_level_roots; do
     [[ -d "$root" ]] || continue
-    fd --hidden --no-ignore --type d --max-depth 1 --glob '*.app' "$root" 2>/dev/null
+    while IFS= read -r info_path; do
+      candidate="${info_path:h:h}"
+      [[ "${candidate:t}" == *.app ]] || continue
+      [[ "${candidate:h:A}" == "${root:A}" ]] || continue
+      print -- "$candidate"
+    done < <(rg --files --hidden --no-ignore --glob 'Info.plist' "$root" 2>/dev/null)
   done
 
   for root in $recursive_roots; do
     [[ -d "$root" ]] || continue
-    fd --hidden --no-ignore --type d --glob '*.app' "$root" 2>/dev/null
+    while IFS= read -r info_path; do
+      candidate="${info_path:h:h}"
+      [[ "${candidate:t}" == *.app ]] || continue
+      print -- "$candidate"
+    done < <(rg --files --hidden --no-ignore --glob 'Info.plist' "$root" 2>/dev/null)
   done
 }
 

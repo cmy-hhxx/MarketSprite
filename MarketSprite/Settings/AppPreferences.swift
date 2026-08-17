@@ -66,7 +66,7 @@ final class AppPreferences: ObservableObject {
         )
         labelOpacity = Self.clamp(
             Self.double(defaults, key: Keys.labelOpacity, fallback: 0.92),
-            to: 0.35...1
+            to: 0.72...1
         )
         backgroundOpacity = Self.clamp(
             Self.double(defaults, key: Keys.backgroundOpacity, fallback: 0.55),

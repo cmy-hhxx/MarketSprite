@@ -26,4 +26,13 @@ extension MarketColorRole {
             BrandPalette.mint
         }
     }
+
+    var inkColor: Color {
+        switch self {
+        case .red:
+            BrandPalette.coralInk
+        case .green:
+            BrandPalette.mintInk
+        }
+    }
 }

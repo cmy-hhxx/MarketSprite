@@ -2,9 +2,10 @@ import SwiftUI
 
 struct AppearanceSettingsPage: View {
     @EnvironmentObject private var preferences: AppPreferences
+    @EnvironmentObject private var loginItem: LoginItemController
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: 20) {
             SettingsGroup("显示效果") {
                 SettingsRow {
                     slider(
@@ -30,7 +31,7 @@ struct AppearanceSettingsPage: View {
                         title: "名称与数字不透明度",
                         icon: "textformat",
                         value: $preferences.labelOpacity,
-                        range: 0.35...1
+                        range: 0.72...1
                     )
                 }
                 SettingsRowDivider()
@@ -50,7 +51,7 @@ struct AppearanceSettingsPage: View {
                         Button("恢复默认") {
                             preferences.resetAppearance()
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.borderless)
                     }
                 }
             }
@@ -65,6 +66,36 @@ struct AppearanceSettingsPage: View {
                 SettingsRow {
                     SettingsToggleRow(isOn: $preferences.alwaysOnTop) {
                         Label("始终置顶", systemImage: "pin.fill")
+                    }
+                }
+                SettingsRowDivider()
+                SettingsRow {
+                    SettingsToggleRow(
+                        isOn: Binding(
+                            get: { loginItem.isEnabled },
+                            set: { loginItem.setEnabled($0) }
+                        )
+                    ) {
+                        Label("登录时自动启动", systemImage: "power")
+                    }
+                    .disabled(loginItem.isUpdating)
+                }
+                if let message = loginItem.message {
+                    SettingsRowDivider()
+                    SettingsRow {
+                        HStack(spacing: 12) {
+                            Label(message, systemImage: "exclamationmark.triangle")
+                                .foregroundStyle(.orange)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 12)
+                            if loginItem.requiresApproval {
+                                Button("打开登录项设置") {
+                                    loginItem.openSystemSettings()
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
+                        }
                     }
                 }
                 SettingsRowDivider()
@@ -121,19 +152,18 @@ struct AppearanceSettingsPage: View {
         step: Double? = nil
     ) -> some View {
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: 16) {
+            HStack(spacing: 18) {
                 Label(title, systemImage: icon)
-                Spacer(minLength: 20)
+                    .frame(width: 172, alignment: .leading)
                 sliderControl(value: value, range: range, step: step)
-                    .frame(width: 260)
+                    .frame(minWidth: 140, maxWidth: .infinity)
                 sliderValue(value)
             }
 
             HStack(spacing: 12) {
                 Label(title, systemImage: icon)
-                Spacer(minLength: 8)
                 sliderControl(value: value, range: range, step: step)
-                    .frame(minWidth: 92, idealWidth: 132, maxWidth: 156)
+                    .frame(minWidth: 92, idealWidth: 132, maxWidth: .infinity)
                 sliderValue(value)
             }
         }
@@ -146,16 +176,34 @@ struct AppearanceSettingsPage: View {
         step: Double?
     ) -> some View {
         if let step {
-            Slider(value: value, in: range, step: step)
+            Slider(value: snappedBinding(value, in: range, step: step), in: range)
+                .tint(BrandPalette.interfaceAccent)
+                .controlSize(.small)
         } else {
             Slider(value: value, in: range)
+                .tint(BrandPalette.interfaceAccent)
+                .controlSize(.small)
         }
+    }
+
+    private func snappedBinding(
+        _ value: Binding<Double>,
+        in range: ClosedRange<Double>,
+        step: Double
+    ) -> Binding<Double> {
+        Binding(
+            get: { value.wrappedValue },
+            set: { newValue in
+                let snappedValue = (newValue / step).rounded() * step
+                value.wrappedValue = min(max(snappedValue, range.lowerBound), range.upperBound)
+            }
+        )
     }
 
     private func sliderValue(_ value: Binding<Double>) -> some View {
         Text("\(Int(value.wrappedValue * 100))%")
-            .font(.callout.monospacedDigit())
+            .font(.system(size: 11.5, weight: .medium).monospacedDigit())
             .foregroundStyle(.secondary)
-            .frame(width: 44, alignment: .trailing)
+            .frame(width: 48, alignment: .trailing)
     }
 }

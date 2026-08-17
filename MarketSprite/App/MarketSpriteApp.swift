@@ -6,10 +6,12 @@ struct MarketSpriteApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var bootstrap: AppBootstrap
     @StateObject private var preferences: AppPreferences
+    @StateObject private var loginItem: LoginItemController
 
     init() {
         let preferences = AppPreferences()
         _preferences = StateObject(wrappedValue: preferences)
+        _loginItem = StateObject(wrappedValue: LoginItemController())
         _bootstrap = StateObject(
             wrappedValue: AppBootstrap(preferences: preferences)
         )
@@ -92,6 +94,7 @@ struct MarketSpriteApp: App {
                 }
             }
             .environmentObject(preferences)
+            .environmentObject(loginItem)
         }
         .defaultSize(
             width: SettingsWindowPresenter.defaultSize.width,

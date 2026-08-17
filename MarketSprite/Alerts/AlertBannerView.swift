@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AlertBannerView: View {
     let alert: AlertEvent
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isBobbing = false
     @State private var sparkle = false
 
@@ -11,6 +12,10 @@ struct AlertBannerView: View {
 
     private var accentColor: Color {
         alert.instrument.market.colorRole(isRising: isBull).color
+    }
+
+    private var accentInkColor: Color {
+        alert.instrument.market.colorRole(isRising: isBull).inkColor
     }
 
     var body: some View {
@@ -28,7 +33,7 @@ struct AlertBannerView: View {
                     .foregroundStyle(BrandPalette.ink)
                 Text(alertDetail)
                     .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundStyle(accentColor)
+                    .foregroundStyle(accentInkColor)
                 Text(alert.triggeredAt.formatted(date: .omitted, time: .shortened))
                     .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(BrandPalette.ink.opacity(0.48))
@@ -61,12 +66,18 @@ struct AlertBannerView: View {
                 }
         }
         .onAppear {
+            guard !reduceMotion else { return }
             withAnimation(.easeInOut(duration: 0.62).repeatForever(autoreverses: true)) {
                 isBobbing = true
             }
             withAnimation(.easeInOut(duration: 0.45).repeatForever(autoreverses: true)) {
                 sparkle = true
             }
+        }
+        .onChange(of: reduceMotion) { _, isReduced in
+            guard isReduced else { return }
+            isBobbing = false
+            sparkle = false
         }
     }
 

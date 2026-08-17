@@ -1,9 +1,12 @@
 import SwiftUI
 
 enum BrandPalette {
-    static let coral = Color(red: 1.0, green: 0.40, blue: 0.32)
-    static let mint = Color(red: 0.39, green: 0.83, blue: 0.72)
-    static let sky = Color(red: 0.38, green: 0.72, blue: 0.93)
+    static let coral = Color(red: 0.96, green: 0.40, blue: 0.36)
+    static let mint = Color(red: 0.11, green: 0.68, blue: 0.55)
+    static let coralInk = Color(red: 0.78, green: 0.29, blue: 0.27)
+    static let mintInk = Color(red: 0.05, green: 0.48, blue: 0.41)
+    static let interfaceAccent = Color(red: 0.22, green: 0.40, blue: 0.44)
+    static let sky = Color(red: 0.34, green: 0.58, blue: 0.64)
     static let cream = Color(red: 1.0, green: 0.95, blue: 0.85)
     static let ink = Color(red: 0.15, green: 0.17, blue: 0.22)
 }
