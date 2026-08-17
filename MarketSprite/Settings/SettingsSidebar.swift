@@ -5,7 +5,7 @@ struct SettingsSidebar: View {
     @State private var hoveredSection: SettingsSection?
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: SettingsVisualStyle.sidebarRowSpacing) {
             ForEach(SettingsSection.allCases) { section in
                 Button {
                     selectedSection = section
@@ -55,10 +55,6 @@ struct SettingsSidebar: View {
             idealWidth: SettingsVisualStyle.sidebarWidth,
             maxWidth: SettingsVisualStyle.sidebarWidth,
             maxHeight: .infinity
-        )
-        .background(
-            SettingsVisualStyle.sidebarBackground,
-            in: RoundedRectangle(cornerRadius: 18)
         )
     }
 

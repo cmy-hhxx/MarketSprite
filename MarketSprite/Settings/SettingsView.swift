@@ -8,8 +8,6 @@ struct SettingsView: View {
     var body: some View {
         HStack(spacing: 0) {
             SettingsSidebar(selectedSection: $selectedSection)
-                .padding(.leading, 8)
-                .padding(.vertical, 8)
 
             VStack(alignment: .leading, spacing: 0) {
                 SettingsPageHeader(section: selectedSection)

@@ -165,26 +165,41 @@ enum SettingsWindowPresenter {
 final class SettingsWindowKeeper {
     static let shared = SettingsWindowKeeper()
 
-    private static let sidebarBackdropIdentifier = NSUserInterfaceItemIdentifier(
-        "market-sprite-settings-sidebar-backdrop"
-    )
-
     private weak var window: NSWindow?
     private var styleObservation: NSKeyValueObservation?
+    private var resizeObserver: NSObjectProtocol?
+    private var trafficLightBaselineFrames: [NSRect] = []
+    private var hasInstalledTrafficLightLayout = false
 
     func attach(_ window: NSWindow) {
         if self.window !== window {
             self.window = window
             styleObservation?.invalidate()
+            if let resizeObserver {
+                NotificationCenter.default.removeObserver(resizeObserver)
+            }
+            trafficLightBaselineFrames = []
+            hasInstalledTrafficLightLayout = false
             styleObservation = window.observe(\.styleMask, options: [.new]) { [weak self] win, _ in
                 Task { @MainActor in
                     self?.ensureResizable(win)
+                }
+            }
+            resizeObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.didResizeNotification,
+                object: window,
+                queue: .main
+            ) { [weak self, weak window] _ in
+                Task { @MainActor in
+                    guard let self, let window else { return }
+                    self.positionTrafficLightButtons(in: window)
                 }
             }
             applyChrome(window)
         } else {
             ensureResizable(window)
             enforceSizeLimits(window)
+            positionTrafficLightButtons(in: window)
         }
     }
 
@@ -193,55 +208,73 @@ final class SettingsWindowKeeper {
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.titlebarSeparatorStyle = .none
+        window.appearance = NSAppearance(named: .aqua)
+        window.backgroundColor = SettingsVisualStyle.windowBackgroundColor
         window.isMovableByWindowBackground = true
         ensureResizable(window)
         enforceSizeLimits(window)
-        installSidebarBackdrop(in: window)
         window.standardWindowButton(.zoomButton)?.isHidden = false
         window.standardWindowButton(.miniaturizeButton)?.isHidden = false
+        DispatchQueue.main.async { [weak self, weak window] in
+            guard let self, let window else { return }
+            self.positionTrafficLightButtons(in: window)
+        }
     }
 
-    private func installSidebarBackdrop(in window: NSWindow) {
+    private func positionTrafficLightButtons(in window: NSWindow) {
+        let buttonTypes: [NSWindow.ButtonType] = [
+            NSWindow.ButtonType.closeButton,
+            .miniaturizeButton,
+            .zoomButton,
+        ]
+        let buttons = buttonTypes.compactMap(window.standardWindowButton)
         guard
-            let titlebarView = window.standardWindowButton(.closeButton)?.superview,
-            let titlebarBackground = titlebarView.subviews.first
+            buttons.count == buttonTypes.count,
+            let titlebarView = buttons.first?.superview
         else { return }
 
-        let backdrop: SettingsSidebarBackdropView
-        if let existing = titlebarView.subviews.first(where: {
-            $0.identifier == Self.sidebarBackdropIdentifier
-        }) as? SettingsSidebarBackdropView {
-            backdrop = existing
-        } else {
-            backdrop = SettingsSidebarBackdropView()
-            backdrop.identifier = Self.sidebarBackdropIdentifier
-            backdrop.wantsLayer = true
-            backdrop.layer?.backgroundColor = NSColor(
-                red: 243 / 255,
-                green: 241 / 255,
-                blue: 243 / 255,
-                alpha: 1
-            ).cgColor
-            backdrop.layer?.cornerRadius = 18
-            backdrop.layer?.cornerCurve = .continuous
-            backdrop.layer?.maskedCorners = [
-                .layerMinXMaxYCorner,
-                .layerMaxXMaxYCorner,
-            ]
-            backdrop.autoresizingMask = [.height, .maxXMargin]
-            titlebarView.addSubview(
-                backdrop,
-                positioned: .above,
-                relativeTo: titlebarBackground
-            )
+        titlebarView.layoutSubtreeIfNeeded()
+        if trafficLightBaselineFrames.count != buttons.count {
+            trafficLightBaselineFrames = buttons.map(\.frame)
+        }
+        guard trafficLightBaselineFrames.count == buttons.count else { return }
+
+        if !hasInstalledTrafficLightLayout {
+            deactivateTrafficLightPositioningConstraints(for: buttons, in: titlebarView)
+            buttons.forEach { $0.translatesAutoresizingMaskIntoConstraints = true }
+            hasInstalledTrafficLightLayout = true
         }
 
-        backdrop.frame = NSRect(
-            x: 8,
-            y: 0,
-            width: SettingsVisualStyle.sidebarWidth,
-            height: max(0, titlebarView.bounds.height - 8)
-        )
+        let spacing = trafficLightBaselineFrames[1].minX - trafficLightBaselineFrames[0].minX
+        for (index, button) in buttons.enumerated() {
+            let baseline = trafficLightBaselineFrames[index]
+            button.setFrameOrigin(
+                NSPoint(
+                    x: SettingsVisualStyle.trafficLightLeadingInset + spacing * CGFloat(index),
+                    y: baseline.minY
+                )
+            )
+        }
+    }
+
+    private func deactivateTrafficLightPositioningConstraints(
+        for buttons: [NSButton],
+        in titlebarView: NSView
+    ) {
+        let buttonIdentifiers = Set(buttons.map(ObjectIdentifier.init))
+        var currentView: NSView? = titlebarView
+
+        while let view = currentView {
+            for constraint in view.constraints {
+                let firstItem = (constraint.firstItem as? NSView).map(ObjectIdentifier.init)
+                let secondItem = (constraint.secondItem as? NSView).map(ObjectIdentifier.init)
+                if firstItem.map(buttonIdentifiers.contains) ?? false
+                    || secondItem.map(buttonIdentifiers.contains) ?? false {
+                    constraint.isActive = false
+                }
+            }
+            currentView = view.superview
+        }
     }
 
     private func ensureResizable(_ window: NSWindow) {
@@ -271,12 +304,6 @@ final class SettingsWindowKeeper {
         if window.maxSize.width < 10_000 || window.maxSize.height < 10_000 {
             window.maxSize = unlimited
         }
-    }
-}
-
-private final class SettingsSidebarBackdropView: NSView {
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        nil
     }
 }
 

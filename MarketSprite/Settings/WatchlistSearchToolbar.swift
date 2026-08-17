@@ -50,23 +50,20 @@ struct WatchlistSearchToolbar: View {
                 }
 
                 Button(action: performPrimaryAction) {
-                    if searchModel.isSearching {
-                        Text("取消")
-                            .frame(maxWidth: .infinity)
-                    } else if searchModel.isPresentingSearch {
-                        Text("返回")
-                            .frame(maxWidth: .infinity)
-                    } else {
-                        Text("查找")
-                            .frame(maxWidth: .infinity)
-                    }
+                    Text(primaryActionTitle)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .buttonStyle(.bordered)
-                .buttonBorderShape(.roundedRectangle(radius: 8))
-                .controlSize(.regular)
-                .tint(canSubmit && !searchModel.isPresentingSearch ? .accentColor : .secondary)
+                .buttonStyle(.plain)
+                .font(.system(size: SettingsVisualStyle.controlFontSize, weight: .medium))
+                .foregroundStyle(primaryActionForeground)
                 .frame(width: 72, height: SettingsVisualStyle.searchControlHeight)
-                .disabled(!canSubmit && !searchModel.isPresentingSearch)
+                .background(primaryActionBackground, in: RoundedRectangle(cornerRadius: 8))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(SettingsVisualStyle.separator, lineWidth: 1)
+                        .allowsHitTesting(false)
+                }
+                .disabled(isPrimaryActionDisabled)
             }
             .padding(.leading, 16)
         }
@@ -77,6 +74,34 @@ struct WatchlistSearchToolbar: View {
     private var canSubmit: Bool {
         !searchModel.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !searchModel.isSearching
+    }
+
+    private var primaryActionTitle: String {
+        if searchModel.isSearching {
+            "取消"
+        } else if searchModel.isPresentingSearch {
+            "返回"
+        } else {
+            "查找"
+        }
+    }
+
+    private var isPrimaryActionDisabled: Bool {
+        !canSubmit && !searchModel.isPresentingSearch
+    }
+
+    private var isPrimaryActionProminent: Bool {
+        canSubmit && !searchModel.isPresentingSearch
+    }
+
+    private var primaryActionForeground: Color {
+        isPrimaryActionProminent
+            ? .white
+            : .secondary.opacity(isPrimaryActionDisabled ? 0.45 : 1)
+    }
+
+    private var primaryActionBackground: Color {
+        isPrimaryActionProminent ? .accentColor : SettingsVisualStyle.fieldBackground
     }
 
     private var showsClearButton: Bool {

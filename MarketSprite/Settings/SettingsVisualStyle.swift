@@ -2,10 +2,12 @@ import AppKit
 import SwiftUI
 
 enum SettingsVisualStyle {
+    static let trafficLightLeadingInset: CGFloat = 19
     static let sidebarWidth: CGFloat = 180
     static let sidebarHorizontalPadding: CGFloat = 10
     static let sidebarTopPadding: CGFloat = 47
-    static let sidebarRowHeight: CGFloat = 34
+    static let sidebarRowHeight: CGFloat = 30
+    static let sidebarRowSpacing: CGFloat = 6
     static let sidebarRowHorizontalPadding: CGFloat = 7
     static let sidebarIconSize: CGFloat = 22
     static let sidebarRowCornerRadius: CGFloat = 8
@@ -24,16 +26,19 @@ enum SettingsVisualStyle {
     static let metadataFontSize: CGFloat = 11
     static let changeFontSize: CGFloat = 13
 
-    static let contentBackground = Color(nsColor: .windowBackgroundColor)
-    static let sidebarBackground = Color(
-        red: 243 / 255,
-        green: 241 / 255,
-        blue: 243 / 255
+    static let windowBackgroundColor = NSColor(
+        red: 250 / 255,
+        green: 251 / 255,
+        blue: 252 / 255,
+        alpha: 1
     )
+    static let fieldBackgroundColor = NSColor.white
+
+    static let contentBackground = Color(nsColor: windowBackgroundColor)
     static let separator = Color(nsColor: .separatorColor).opacity(0.72)
     static let hoverBackground = Color.primary.opacity(0.035)
     static let selectedBackground = Color.primary.opacity(0.085)
-    static let fieldBackground = Color(nsColor: .controlBackgroundColor)
+    static let fieldBackground = Color(nsColor: fieldBackgroundColor)
     static let marketRed = Color(red: 217 / 255, green: 75 / 255, blue: 75 / 255)
     static let marketGreen = Color(red: 11 / 255, green: 136 / 255, blue: 117 / 255)
 }
