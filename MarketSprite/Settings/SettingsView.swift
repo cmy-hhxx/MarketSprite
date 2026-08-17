@@ -1,3 +1,4 @@
+import OSLog
 import SwiftUI
 
 struct SettingsView: View {
@@ -7,145 +8,111 @@ struct SettingsView: View {
     var body: some View {
         HStack(spacing: 0) {
             SettingsSidebar(selectedSection: $selectedSection)
-            Divider()
-                .overlay(BrandPalette.interfaceAccent.opacity(0.14))
+                .padding(.leading, 8)
+                .padding(.vertical, 8)
 
-            SettingsScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    SettingsPageHeader(section: selectedSection)
-                    SettingsStorageErrorBanner()
+            VStack(alignment: .leading, spacing: 0) {
+                SettingsPageHeader(section: selectedSection)
+                    .padding(.horizontal, SettingsVisualStyle.contentHorizontalPadding)
+                    .padding(.top, 36)
+                    .padding(.bottom, selectedSection == .watchlist ? 24 : 16)
 
-                    switch selectedSection {
-                    case .watchlist:
-                        WatchlistSettingsPage()
-                    case .appearance:
-                        AppearanceSettingsPage()
-                    case .alerts:
-                        AlertsSettingsPage()
-                    case .data:
-                        DataSettingsPage(hasLoadedQuoteBarCount: $hasLoadedQuoteBarCount)
-                    }
-                }
+                SettingsDetailView(
+                    section: selectedSection,
+                    hasLoadedQuoteBarCount: $hasLoadedQuoteBarCount
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background {
-                Color(nsColor: .windowBackgroundColor)
-                    .overlay {
-                        LinearGradient(
-                            colors: [
-                                BrandPalette.interfaceAccent.opacity(0.035),
-                                BrandPalette.mint.opacity(0.012),
-                                Color.clear,
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    }
+            .background(SettingsVisualStyle.contentBackground)
+        }
+        .background(SettingsVisualStyle.contentBackground)
+        .font(.system(size: SettingsVisualStyle.controlFontSize))
+        .ignoresSafeArea(edges: .top)
+        .onAppear {
+            let interval = SettingsSignposts.signposter.beginInterval(
+                "SettingsOpen",
+                id: SettingsSignposts.signposter.makeSignpostID()
+            )
+            DispatchQueue.main.async {
+                SettingsSignposts.signposter.endInterval("SettingsOpen", interval)
             }
         }
-        .font(.system(size: 12.5))
-        .textSelection(.enabled)
-    }
-}
-
-private struct SettingsSidebar: View {
-    @Binding var selectedSection: SettingsSection
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            ForEach(SettingsSection.allCases) { section in
-                Button {
-                    selectedSection = section
-                } label: {
-                    Label {
-                        Text(section.title)
-                            .font(.system(size: 13, weight: .semibold))
-                    } icon: {
-                        BrandIcon(
-                            systemName: section.icon,
-                            tint: selectedSection == section ? BrandPalette.interfaceAccent : .secondary
-                        )
-                    }
-                    .foregroundStyle(.primary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 7)
-                    .background {
-                        if selectedSection == section {
-                            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                .fill(BrandPalette.interfaceAccent.opacity(0.13))
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
+        .onChange(of: selectedSection) { _, section in
+            let interval = SettingsSignposts.signposter.beginInterval(
+                "SettingsSectionChange",
+                id: SettingsSignposts.signposter.makeSignpostID()
+            )
+            DispatchQueue.main.async {
+                SettingsSignposts.signposter.endInterval("SettingsSectionChange", interval)
             }
-
-            Spacer(minLength: 0)
-        }
-        .padding(.top, 12)
-        .padding(.horizontal, 10)
-        .frame(
-            minWidth: 184,
-            idealWidth: 184,
-            maxWidth: 184,
-            maxHeight: .infinity
-        )
-        .background {
-            ZStack {
-                Color(nsColor: .controlBackgroundColor)
-                BrandPalette.interfaceAccent.opacity(0.045)
-            }
-            .ignoresSafeArea(edges: .top)
+            _ = section
         }
     }
 }
 
-private struct SettingsPageHeader: View {
+private enum SettingsSignposts {
+    static let signposter = OSSignposter(
+        subsystem: "io.github.cmy-hhxx.marketsprite",
+        category: "Settings"
+    )
+}
+
+struct SettingsDetailView: View {
     let section: SettingsSection
+    @Binding var hasLoadedQuoteBarCount: Bool
 
     var body: some View {
-        HStack(spacing: 10) {
-            BrandIcon(systemName: section.icon, size: 16, tint: BrandPalette.interfaceAccent)
-            Text(section.title)
-                .font(.system(size: 18, weight: .semibold))
-            Spacer(minLength: 0)
+        VStack(spacing: 0) {
+            SettingsStorageErrorBanner()
+
+            switch section {
+            case .watchlist:
+                WatchlistSettingsPage()
+            case .appearance:
+                AppearanceSettingsPage()
+            case .alerts:
+                AlertsSettingsPage()
+            case .data:
+                DataSettingsPage(hasLoadedQuoteBarCount: $hasLoadedQuoteBarCount)
+            }
         }
-        .accessibilityAddTraits(.isHeader)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(SettingsVisualStyle.contentBackground)
     }
 }
 
-private struct SettingsStorageErrorBanner: View {
+struct SettingsStorageErrorBanner: View {
     @EnvironmentObject private var store: MonitorStore
 
     var body: some View {
         if let message = store.storageError {
-        HStack(alignment: .top, spacing: 8) {
-            Label {
-                Text(message)
-            } icon: {
-                BrandIcon(systemName: "externaldrive.badge.exclamationmark")
+            HStack(alignment: .top, spacing: 8) {
+                Label(message, systemImage: "externaldrive.badge.exclamationmark")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+
+                Spacer(minLength: 8)
+
+                Button(tr("关闭"), systemImage: "xmark.circle.fill") {
+                    store.dismissStorageError()
+                }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help(tr("关闭"))
             }
-                .font(.callout)
-                .foregroundStyle(.orange)
-                .fixedSize(horizontal: false, vertical: true)
-                .textSelection(.enabled)
-            Spacer(minLength: 8)
-            Button {
-                store.dismissStorageError()
-            } label: {
-                BrandIcon(systemName: "xmark.circle.fill", size: 11, showsBackground: false)
-            }
-            .buttonStyle(.plain)
-            .help(tr("关闭"))
-            .accessibilityLabel(tr("关闭存储错误"))
-        }
             .padding(10)
-            .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+            .background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+            .padding(.horizontal, SettingsVisualStyle.contentHorizontalPadding)
+            .padding(.top, 12)
         }
     }
 }
 
-private enum SettingsSection: String, CaseIterable, Identifiable {
+enum SettingsSection: String, CaseIterable, Hashable, Identifiable {
     case watchlist
     case appearance
     case alerts
@@ -168,6 +135,19 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
         case .appearance: "paintbrush"
         case .alerts: "bell.badge"
         case .data: "network"
+        }
+    }
+
+    var iconTint: Color {
+        switch self {
+        case .watchlist:
+            Color(red: 0.57, green: 0.58, blue: 0.61)
+        case .appearance:
+            Color(red: 0.36, green: 0.32, blue: 0.88)
+        case .alerts:
+            Color(red: 0.96, green: 0.25, blue: 0.30)
+        case .data:
+            Color(red: 0.03, green: 0.69, blue: 0.72)
         }
     }
 }

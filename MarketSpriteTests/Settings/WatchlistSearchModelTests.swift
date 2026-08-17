@@ -1,3 +1,4 @@
+import Combine
 import XCTest
 @testable import MarketSprite
 
@@ -95,6 +96,55 @@ final class WatchlistSearchModelTests: XCTestCase {
         XCTAssertFalse(model.isSearching)
         XCTAssertTrue(model.results.isEmpty)
         XCTAssertNil(model.message)
+    }
+
+    func testCancelReturnsToWatchlistAfterCompletedSearch() async {
+        let expected = Self.instrument(symbol: "AAPL")
+        let model = WatchlistSearchModel { _ in [expected] }
+
+        model.query = "AAPL"
+        model.submit()
+        await waitUntil { model.results == [expected] }
+        XCTAssertTrue(model.isPresentingSearch)
+
+        model.cancel()
+
+        XCTAssertEqual(model.query, "")
+        XCTAssertTrue(model.results.isEmpty)
+        XCTAssertNil(model.message)
+        XCTAssertFalse(model.isSearching)
+        XCTAssertFalse(model.isPresentingSearch)
+    }
+
+    func testEditingIdleQueryPublishesSingleViewInvalidation() {
+        let model = WatchlistSearchModel { _ in [] }
+        var invalidationCount = 0
+        let subscription = model.objectWillChange.sink {
+            invalidationCount += 1
+        }
+
+        model.query = "A"
+
+        XCTAssertEqual(invalidationCount, 1)
+        withExtendedLifetime(subscription) {}
+    }
+
+    func testSubmittingIdleQueryPublishesOnlySearchingState() {
+        let model = WatchlistSearchModel { _ in
+            try await Task.sleep(for: .seconds(60))
+            return []
+        }
+        model.query = "A"
+        var invalidationCount = 0
+        let subscription = model.objectWillChange.sink {
+            invalidationCount += 1
+        }
+
+        model.submit()
+
+        XCTAssertEqual(invalidationCount, 1)
+        model.cancel()
+        withExtendedLifetime(subscription) {}
     }
 
     private func waitUntil(

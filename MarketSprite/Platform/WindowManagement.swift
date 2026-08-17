@@ -165,6 +165,10 @@ enum SettingsWindowPresenter {
 final class SettingsWindowKeeper {
     static let shared = SettingsWindowKeeper()
 
+    private static let sidebarBackdropIdentifier = NSUserInterfaceItemIdentifier(
+        "market-sprite-settings-sidebar-backdrop"
+    )
+
     private weak var window: NSWindow?
     private var styleObservation: NSKeyValueObservation?
 
@@ -192,15 +196,66 @@ final class SettingsWindowKeeper {
         window.isMovableByWindowBackground = true
         ensureResizable(window)
         enforceSizeLimits(window)
+        installSidebarBackdrop(in: window)
         window.standardWindowButton(.zoomButton)?.isHidden = false
         window.standardWindowButton(.miniaturizeButton)?.isHidden = false
     }
 
+    private func installSidebarBackdrop(in window: NSWindow) {
+        guard
+            let titlebarView = window.standardWindowButton(.closeButton)?.superview,
+            let titlebarBackground = titlebarView.subviews.first
+        else { return }
+
+        let backdrop: SettingsSidebarBackdropView
+        if let existing = titlebarView.subviews.first(where: {
+            $0.identifier == Self.sidebarBackdropIdentifier
+        }) as? SettingsSidebarBackdropView {
+            backdrop = existing
+        } else {
+            backdrop = SettingsSidebarBackdropView()
+            backdrop.identifier = Self.sidebarBackdropIdentifier
+            backdrop.wantsLayer = true
+            backdrop.layer?.backgroundColor = NSColor(
+                red: 243 / 255,
+                green: 241 / 255,
+                blue: 243 / 255,
+                alpha: 1
+            ).cgColor
+            backdrop.layer?.cornerRadius = 18
+            backdrop.layer?.cornerCurve = .continuous
+            backdrop.layer?.maskedCorners = [
+                .layerMinXMaxYCorner,
+                .layerMaxXMaxYCorner,
+            ]
+            backdrop.autoresizingMask = [.height, .maxXMargin]
+            titlebarView.addSubview(
+                backdrop,
+                positioned: .above,
+                relativeTo: titlebarBackground
+            )
+        }
+
+        backdrop.frame = NSRect(
+            x: 8,
+            y: 0,
+            width: SettingsVisualStyle.sidebarWidth,
+            height: max(0, titlebarView.bounds.height - 8)
+        )
+    }
+
     private func ensureResizable(_ window: NSWindow) {
-        guard !window.styleMask.contains(.resizable) else { return }
+        let requiredStyle: NSWindow.StyleMask = [
+            .titled,
+            .closable,
+            .miniaturizable,
+            .resizable,
+            .fullSizeContentView,
+        ]
+        guard !window.styleMask.contains(requiredStyle) else { return }
         // Avoid touching styleMask while the user is actively dragging.
         guard NSEvent.pressedMouseButtons == 0 else { return }
-        window.styleMask.insert([.titled, .closable, .miniaturizable, .resizable])
+        window.styleMask.insert(requiredStyle)
     }
 
     private func enforceSizeLimits(_ window: NSWindow) {
@@ -216,6 +271,12 @@ final class SettingsWindowKeeper {
         if window.maxSize.width < 10_000 || window.maxSize.height < 10_000 {
             window.maxSize = unlimited
         }
+    }
+}
+
+private final class SettingsSidebarBackdropView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        nil
     }
 }
 

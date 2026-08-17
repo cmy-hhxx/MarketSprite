@@ -8,135 +8,102 @@ struct DataSettingsPage: View {
     @State private var confirmClearQuoteDB = false
     @State private var isRefreshing = false
     @State private var didCopyDatabasePath = false
-    @State private var showsStorageDiagnostics = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            SettingsGroup("行情状态") {
-                SettingsRow {
-                    HStack(spacing: 16) {
-                        Label("刷新频率", systemImage: "arrow.clockwise")
+        Form {
+            Section("行情状态") {
+                LabeledContent {
+                    Picker("刷新频率", selection: $preferences.refreshInterval) {
+                        Text("15 秒").tag(15)
+                        Text("30 秒").tag(30)
+                        Text("60 秒").tag(60)
+                    }
+                    .labelsHidden()
+                    .frame(width: 100)
+                } label: {
+                    Label("刷新频率", systemImage: "arrow.clockwise")
+                }
 
-                        Spacer(minLength: 16)
+                LabeledContent {
+                    Text("腾讯分时 · 东方财富备用")
+                        .foregroundStyle(.secondary)
+                } label: {
+                    Label("数据源", systemImage: "antenna.radiowaves.left.and.right")
+                }
 
-                        Picker("刷新频率", selection: $preferences.refreshInterval) {
-                            Text("15 秒").tag(15)
-                            Text("30 秒").tag(30)
-                            Text("60 秒").tag(60)
+                LabeledContent {
+                    Text(lastRefreshText)
+                        .foregroundStyle(.secondary)
+                        .help(lastRefreshFullText)
+                } label: {
+                    Label("最近刷新", systemImage: "clock")
+                }
+
+                LabeledContent {
+                    Button {
+                        refreshAll()
+                    } label: {
+                        if isRefreshing {
+                            Label("正在刷新…", systemImage: "arrow.clockwise")
+                        } else {
+                            Label("立即刷新", systemImage: "arrow.clockwise")
                         }
-                        .labelsHidden()
-                        .frame(width: 100)
                     }
-                }
-                SettingsRowDivider()
-                SettingsRow {
-                    HStack(spacing: 16) {
-                        Label("数据源", systemImage: "antenna.radiowaves.left.and.right")
-                        Spacer(minLength: 16)
-                        Text(tr("腾讯分时 · 东方财富备用"))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                SettingsRowDivider()
-                SettingsRow {
-                    HStack(spacing: 16) {
-                        Label("最近刷新", systemImage: "clock")
-                        Spacer(minLength: 16)
-                        Text(lastRefreshText)
-                            .foregroundStyle(.secondary)
-                            .help(lastRefreshFullText)
-                    }
-                }
-                SettingsRowDivider()
-                SettingsRow {
-                    HStack(spacing: 16) {
-                        Label("行情刷新", systemImage: "arrow.clockwise")
-                        Spacer(minLength: 16)
-
-                        Button {
-                            refreshAll()
-                        } label: {
-                            if isRefreshing {
-                                HStack(spacing: 6) {
-                                    ProgressView()
-                                        .controlSize(.small)
-                                    Text("正在刷新…")
-                                }
-                            } else {
-                                Label("立即刷新", systemImage: "arrow.clockwise")
-                            }
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .disabled(isRefreshing)
-                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(isRefreshing)
+                } label: {
+                    Label("行情刷新", systemImage: "arrow.clockwise")
                 }
             }
 
-            SettingsGroup("存储与诊断") {
-                DisclosureGroup(isExpanded: $showsStorageDiagnostics) {
-                    VStack(spacing: 0) {
-                        SettingsRow {
-                            HStack(spacing: 16) {
-                                Label("缓存分钟数", systemImage: "clock.arrow.circlepath")
-                                Spacer(minLength: 16)
-                                Text("\(store.quoteBarCount.formatted()) 分钟")
-                                    .monospacedDigit()
-                                    .foregroundStyle(.secondary)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        SettingsRowDivider()
-                        SettingsRow {
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack(spacing: 6) {
-                                    Text("数据库路径")
-                                    if didCopyDatabasePath {
-                                        Label("已复制", systemImage: "checkmark")
-                                            .font(.caption.weight(.medium))
-                                            .foregroundStyle(BrandPalette.mintInk)
-                                    }
-                                }
-                                databasePathText
-                            }
-                        }
-                        SettingsRowDivider()
-                        SettingsRow {
-                            HStack(spacing: 16) {
-                                Label("清空行情缓存", systemImage: "trash")
-                                Spacer(minLength: 16)
+            Section("存储与诊断") {
+                LabeledContent {
+                    Text("\(store.quoteBarCount.formatted()) 分钟")
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                } label: {
+                    Label("缓存分钟数", systemImage: "clock.arrow.circlepath")
+                }
 
-                                Button(role: .destructive) {
-                                    confirmClearQuoteDB = true
-                                } label: {
-                                    Label("清空…", systemImage: "trash")
-                                }
-                                .buttonStyle(.bordered)
-                                .tint(.red)
-                                .confirmationDialog(
-                                    tr("清空全部行情缓存？此操作不可撤销。"),
-                                    isPresented: $confirmClearQuoteDB,
-                                    titleVisibility: .visible
-                                ) {
-                                    Button(tr("清空"), role: .destructive) {
-                                        Task {
-                                            await store.clearQuoteHistory()
-                                            await store.refreshQuoteBarCount()
-                                        }
-                                    }
-                                    Button(tr("取消"), role: .cancel) {}
-                                }
-                            }
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Text("数据库路径")
+                        if didCopyDatabasePath {
+                            Label("已复制", systemImage: "checkmark")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                     }
-                    .padding(.top, 6)
-                } label: {
-                    Label("显示缓存、路径与清理操作", systemImage: "externaldrive")
-                        .foregroundStyle(.secondary)
+                    databasePathText
                 }
-                .padding(.vertical, 10)
+
+                LabeledContent {
+                    Button("清空…", role: .destructive) {
+                        confirmClearQuoteDB = true
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .confirmationDialog(
+                        tr("清空全部行情缓存？此操作不可撤销。"),
+                        isPresented: $confirmClearQuoteDB,
+                        titleVisibility: .visible
+                    ) {
+                        Button(tr("清空"), role: .destructive) {
+                            Task {
+                                await store.clearQuoteHistory()
+                                await store.refreshQuoteBarCount()
+                            }
+                        }
+                        Button(tr("取消"), role: .cancel) {}
+                    }
+                } label: {
+                    Label("清空行情缓存", systemImage: "trash")
+                }
             }
         }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
         .task {
             guard !hasLoadedQuoteBarCount else { return }
             hasLoadedQuoteBarCount = true
@@ -180,7 +147,7 @@ struct DataSettingsPage: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .buttonStyle(.plain)
         .contentShape(Rectangle())
