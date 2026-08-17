@@ -514,6 +514,9 @@ final class MonitorStore: ObservableObject {
                 )
                 acceptedQuotes.append((outcome.instrument, quote))
                 storageFailure = storageFailure ?? error
+            case .noData(let message):
+                monitored.status = monitored.quote == nil ? .idle : .stale
+                monitored.statusMessage = message
             case .stale(let message):
                 staleResponses += 1
                 monitored.status = .stale

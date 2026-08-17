@@ -53,6 +53,35 @@ final class MonitorStoreTests: XCTestCase {
         XCTAssertEqual(store.instruments, [instrument])
         XCTAssertEqual(store.monitoredInstrument(for: instrument.id)?.quote, cached)
         XCTAssertEqual(store.monitoredInstrument(for: instrument.id)?.status, .stale)
+        XCTAssertEqual(
+            store.sourceError,
+            tr("行情连接暂不可用，已保留上次成功数据")
+        )
+        store.stop()
+    }
+
+    func testNoIntradayDataDoesNotReportConnectionFailure() async throws {
+        let database = try MarketDatabase.inMemory()
+        let instrument = Instrument.initialWatchlist[0]
+        let cached = makeQuote(for: instrument, price: 1_500)
+        try await database.replaceWatchlist(with: [instrument])
+        try await database.saveQuote(cached, for: instrument)
+        let store = MonitorStore(
+            client: NoIntradayDataMarketDataClient(),
+            database: database,
+            preferences: makePreferences()
+        )
+
+        try await store.start()
+        await store.refreshAll()
+
+        XCTAssertEqual(store.monitoredInstrument(for: instrument.id)?.quote, cached)
+        XCTAssertEqual(store.monitoredInstrument(for: instrument.id)?.status, .stale)
+        XCTAssertEqual(
+            store.monitoredInstrument(for: instrument.id)?.statusMessage,
+            tr("今天暂无分时数据")
+        )
+        XCTAssertNil(store.sourceError)
         store.stop()
     }
 
@@ -601,6 +630,16 @@ private struct FailingMarketDataClient: MarketDataClient {
 
     func fetchQuote(for instrument: Instrument) async throws -> QuoteSnapshot {
         throw URLError(.notConnectedToInternet)
+    }
+}
+
+private struct NoIntradayDataMarketDataClient: MarketDataClient {
+    func searchInstruments(matching query: String) async throws -> [Instrument] {
+        []
+    }
+
+    func fetchQuote(for instrument: Instrument) async throws -> QuoteSnapshot {
+        throw MarketDataError.noIntradayData
     }
 }
 

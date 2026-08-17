@@ -11,6 +11,7 @@ struct QuoteRefreshOutcome: Sendable {
 
     enum Result: Sendable {
         case updated(QuoteSnapshot, storageError: String?)
+        case noData(String)
         case stale(String)
         case failed(String)
         case discarded
@@ -150,6 +151,11 @@ actor QuoteRefreshCoordinator {
             }
         } catch is CancellationError {
             return QuoteRefreshOutcome(instrument: instrument, result: .discarded)
+        } catch MarketDataError.noIntradayData {
+            return QuoteRefreshOutcome(
+                instrument: instrument,
+                result: .noData(MarketDataError.noIntradayData.localizedDescription)
+            )
         } catch {
             return QuoteRefreshOutcome(
                 instrument: instrument,
